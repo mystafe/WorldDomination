@@ -1,14 +1,23 @@
 import "./App.css"
-import { useState, useMemo } from "react"
+import { useState, useMemo, useEffect, useRef } from "react"
 import { useGameStore } from "./store/game"
 import { loadConfig, saveConfig, type GameConfig } from "./config/game"
 import { getMapById } from "./data/territories"
 import { motion } from "framer-motion"
+import RealMap from "./components/RealMap"
 
 function App() {
   const [config, setConfig] = useState<GameConfig>(loadConfig())
   const [setupComplete, setSetupComplete] = useState(false)
   const [playerNames, setPlayerNames] = useState<string[]>(["Player 1", "Player 2", "Player 3"])
+  const [conquestArmies, setConquestArmies] = useState(1)
+  const [fortifyArmies, setFortifyArmies] = useState(1)
+  const [toast, setToast] = useState<string | null>(null)
+  const holdTimerRef = useRef<number | null>(null)
+  const holdActiveRef = useRef<string | null>(null)
+  const holdDelayRef = useRef<number>(200)
+  const holdCountRef = useRef<number>(0)
+  const holdFiredRef = useRef<boolean>(false)
   
   const {
     selectedMap,
@@ -36,9 +45,39 @@ function App() {
     selectFortifyTo,
     executeFortify,
     getTerritoryState,
+    playAITurn,
+    setSettings,
+    redeemCards,
+    placementStage,
+    placementReserves
   } = useGameStore()
   
   const currentPlayer = players[currentPlayerIndex]
+  
+  // Auto-play AI turns
+  useEffect(() => {
+    if (!currentPlayer) return
+    if (currentPlayer.isHuman) return
+    if (phase === 'setup') return
+    
+    const timer = setTimeout(() => {
+      playAITurn()
+    }, 1500)
+    
+    return () => clearTimeout(timer)
+  }, [currentPlayerIndex, phase])
+
+  // Phase info message (persistent during phase)
+  const phaseInfo = useMemo(() => {
+    if (phase === 'placement') {
+      if (placementStage === 'claim') return config.language==='tr' ? 'Reinforcement: Boş bölge seçip sahiplenin' : 'Reinforcement: Claim a neutral territory'
+      return config.language==='tr' ? 'Reinforcement: Rezervleri bölgelerinize sırayla dağıtın' : 'Reinforcement: Distribute reserves to your territories'
+    }
+    if (phase === 'draft') {
+      return config.language==='tr' ? 'Draft: Bölgelerinize takviye asker yerleştirin' : 'Draft: Place reinforcements on your territories'
+    }
+    return null
+  }, [phase, placementStage, config.language])
   
   // Translations
   const t = useMemo(() => {
@@ -57,6 +96,7 @@ function App() {
         currentPlayer: "Sıradaki Oyuncu",
         turn: "Tur",
         phase: "Faz",
+        reinforcementPhase: "Reinforcement",
         draftPhase: "Ordu Yerleştirme",
         attackPhase: "Saldırı",
         fortifyPhase: "Takviye",
@@ -73,9 +113,25 @@ function App() {
         moveArmies: "Ordu Taşı",
         attackerDice: "Saldıran Zar",
         defenderDice: "Savunan Zar",
-        roll: "Zar At"
-    },
-    en: {
+        roll: "Zar At",
+        settings: "Ayarlar",
+        placement: "Yerleşim",
+        speed: "Savaş Hızı",
+        model: "Savaş Modeli",
+        resources: "Kaynak Seviyesi",
+        random: "Rastgele",
+        sequential: "Sıra ile",
+        instant: "Anlık",
+        normal: "Normal",
+        realistic: "Gerçekçi",
+        low: "Az",
+        medium: "Orta",
+        high: "Bol",
+        cards: "Kartlar",
+        redeem3: "3 kartı bozdur (6 ordu)",
+        need3: "En az 3 kart gerek"
+      },
+      en: {
         title: "RISK - World Domination",
         setupTitle: "Game Setup",
         selectMap: "Select Map",
@@ -89,6 +145,7 @@ function App() {
         currentPlayer: "Current Player",
         turn: "Turn",
         phase: "Phase",
+        reinforcementPhase: "Reinforcement",
         draftPhase: "Draft",
         attackPhase: "Attack",
         fortifyPhase: "Fortify",
@@ -105,7 +162,23 @@ function App() {
         moveArmies: "Move Armies",
         attackerDice: "Attacker Dice",
         defenderDice: "Defender Dice",
-        roll: "Roll"
+        roll: "Roll",
+        settings: "Settings",
+        placement: "Placement",
+        speed: "Battle Speed",
+        model: "Battle Model",
+        resources: "Resources",
+        random: "Random",
+        sequential: "Sequential",
+        instant: "Instant",
+        normal: "Normal",
+        realistic: "Realistic",
+        low: "Low",
+        medium: "Medium",
+        high: "High",
+        cards: "Cards",
+        redeem3: "Redeem 3 cards (6 armies)",
+        need3: "Need at least 3 cards"
       }
     }
     return (lang: 'tr' | 'en') => (key: string) => {
@@ -114,6 +187,46 @@ function App() {
   }, [])
   
   const tr = t(config.language)
+
+  const suggestedTerritoryId = useMemo(() => {
+    if (!mapDefinition || !currentPlayer) return undefined
+    if (phase === 'placement' && placementStage === 'claim') {
+      const neutrals = territories.filter(t => t.ownerId === -1)
+      if (neutrals.length === 0) return undefined
+      const mine = territories.filter(t => t.ownerId === currentPlayer.id)
+      if (mine.length > 0) {
+        // prefer neutral neighbors to my owned
+        for (const mt of mine) {
+          const def = mapDefinition.territories.find(tt => tt.id === mt.id)
+          if (!def) continue
+          const cand = def.neighbors.find(nId => territories.find(tt => tt.id === nId)?.ownerId === -1)
+          if (cand) return cand
+        }
+      }
+      return neutrals[0]?.id
+    }
+    if ((phase === 'placement' && placementStage === 'distribute') || phase === 'draft') {
+      const mine = territories.filter(t => t.ownerId === currentPlayer.id)
+      if (mine.length === 0) return undefined
+      // prefer enemy-adjacent with lowest armies
+      const enemyAdj = mine
+        .map(t => ({
+          t,
+          enemyNeighbor: mapDefinition.territories
+            .find(tt => tt.id === t.id)?.neighbors.some(nId => {
+              const st = territories.find(x => x.id === nId)
+              return st && st.ownerId !== currentPlayer.id
+            })
+        }))
+        .filter(x => x.enemyNeighbor)
+        .map(x => x.t)
+        .sort((a,b) => a.armies - b.armies)
+      if (enemyAdj.length > 0) return enemyAdj[0].id
+      // else strictly lowest armies
+      return mine.sort((a,b) => a.armies - b.armies)[0].id
+    }
+    return undefined
+  }, [mapDefinition, territories, currentPlayer, phase, placementStage])
   
   // Handle player count change
   const updatePlayerCount = (count: number) => {
@@ -121,7 +234,6 @@ function App() {
     setConfig(newConfig)
     saveConfig(newConfig)
     
-    // Update player names array
     const newNames = Array.from({ length: count }, (_, i) => 
       playerNames[i] || `Player ${i + 1}`
     )
@@ -143,10 +255,32 @@ function App() {
     setMap(mapId)
   }
   
+  // Generic settings setter (keeps both store + config in sync)
+  const applySetting = <K extends keyof GameConfig>(key: K, value: GameConfig[K]) => {
+    const next = { ...config, [key]: value }
+    setConfig(next)
+    saveConfig(next)
+    // Map GameConfig keys to store settings keys when applicable
+    if (key === 'placementMode' || key === 'battleSpeed' || key === 'battleModel' || key === 'resourceLevel') {
+      setSettings({ [key]: value } as any)
+    }
+  }
+  
   // Start game
   const handleStartGame = () => {
-    initGame(playerNames.slice(0, config.playerCount), config.humanPlayers)
-    setSetupComplete(true)
+    // Sync settings from persisted config
+    setSettings({
+      placementMode: (config.placementMode || 'random') as any,
+      battleSpeed: (config.battleSpeed || 'normal') as any,
+      battleModel: (config.battleModel || 'realistic') as any,
+      resourceLevel: (config.resourceLevel || 'medium') as any,
+      attackMode: (config.attackMode || 'single') as any,
+    })
+    setMap(config.selectedMap)
+    setTimeout(() => {
+      initGame(playerNames.slice(0, config.playerCount), config.humanPlayers, (config.placementMode || 'random') as any)
+      setSetupComplete(true)
+    }, 250)
   }
   
   // Setup screen
@@ -245,234 +379,689 @@ function App() {
                           </div>
                     </div>
 
+            {/* Settings (setup) */}
+            <div>
+              <label className="block text-sm font-semibold text-emerald-300 mb-3 uppercase tracking-wide">
+                ⚙️ {tr('settings')}
+                  </label>
+              <div className="grid sm:grid-cols-2 gap-3">
+                    <div>
+                  <div className="text-xs text-slate-400 mb-1">{tr('placement')}</div>
+                  <select
+                    value={config.placementMode || 'random'}
+                    onChange={(e)=> applySetting('placementMode', e.target.value as any)}
+                    className="w-full rounded-md bg-slate-800/70 border border-slate-600/50 px-3 py-2 text-white"
+                  >
+                    <option value="random">{tr('random')}</option>
+                    <option value="sequential">{tr('sequential')}</option>
+                  </select>
+                </div>
+                      <div>
+                  <div className="text-xs text-slate-400 mb-1">{tr('speed')}</div>
+                        <select
+                    value={config.battleSpeed || 'normal'}
+                    onChange={(e)=> applySetting('battleSpeed', e.target.value as any)}
+                    className="w-full rounded-md bg-slate-800/70 border border-slate-600/50 px-3 py-2 text-white"
+                  >
+                    <option value="instant">{tr('instant')}</option>
+                    <option value="normal">{tr('normal')}</option>
+                        </select>
+                      </div>
+                      <div>
+                  <div className="text-xs text-slate-400 mb-1">{tr('model')}</div>
+                        <select
+                    value={config.battleModel || 'realistic'}
+                    onChange={(e)=> applySetting('battleModel', e.target.value as any)}
+                    className="w-full rounded-md bg-slate-800/70 border border-slate-600/50 px-3 py-2 text-white"
+                  >
+                    <option value="realistic">{tr('realistic')}</option>
+                    <option value="random">{tr('random')}</option>
+                        </select>
+                      </div>
+                      <div>
+                  <div className="text-xs text-slate-400 mb-1">{tr('resources')}</div>
+                        <select
+                    value={config.resourceLevel || 'medium'}
+                    onChange={(e)=> applySetting('resourceLevel', e.target.value as any)}
+                    className="w-full rounded-md bg-slate-800/70 border border-slate-600/50 px-3 py-2 text-white"
+                  >
+                    <option value="low">{tr('low')}</option>
+                    <option value="medium">{tr('medium')}</option>
+                    <option value="high">{tr('high')}</option>
+                        </select>
+                      </div>
+                      <div>
+                  <div className="text-xs text-slate-400 mb-1">Saldırı Çözümü</div>
+                        <select
+                    value={config.attackMode || 'single'}
+                    onChange={(e)=> applySetting('attackMode', e.target.value as any)}
+                    className="w-full rounded-md bg-slate-800/70 border border-slate-600/50 px-3 py-2 text-white"
+                  >
+                    <option value="single">Tek vuruş</option>
+                    <option value="all-in">Sonuna kadar</option>
+                        </select>
+                </div>
+              </div>
+              <div className="text-xs text-slate-500 mt-2">
+                {config.language==='tr' ? 'Not: Yerleşim modu yeni oyunda etkili olur.' : 'Note: Placement mode applies on new game.'}
+              </div>
+                </div>
+
             {/* Start Button */}
-            <button
+                      <button
               onClick={handleStartGame}
               className="w-full py-4 bg-gradient-to-r from-emerald-500 to-blue-500 text-white text-xl font-bold rounded-xl hover:from-emerald-600 hover:to-blue-600 transition-all shadow-lg hover:shadow-xl transform hover:scale-105"
             >
               🎯 {tr('startGame')}
-            </button>
-                </div>
+                      </button>
+                    </div>
         </motion.div>
                   </div>
+    )
+  }
+  
+  // Check for game over
+  const winner = players.find(p => p.alive && players.filter(pl => pl.alive).length === 1)
+  
+  if (winner) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center p-4">
+        <motion.div
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="max-w-2xl w-full text-center"
+        >
+          <div className="bg-slate-800/50 backdrop-blur-xl rounded-2xl border border-slate-700/50 p-12">
+            <div className="text-6xl mb-4">🏆</div>
+            <h1 className="text-4xl font-bold text-white mb-4">
+              {config.language === 'tr' ? 'Oyun Bitti!' : 'Game Over!'}
+            </h1>
+            <div className="text-2xl text-emerald-400 mb-8">
+              {config.language === 'tr' ? 'Kazanan:' : 'Winner:'} {winner.name}
+            </div>
+                <button
+                  onClick={() => {
+                setSetupComplete(false)
+                useGameStore.getState().reset()
+              }}
+              className="px-8 py-4 bg-gradient-to-r from-emerald-500 to-blue-500 text-white text-xl font-bold rounded-xl hover:from-emerald-600 hover:to-blue-600"
+            >
+              {config.language === 'tr' ? 'Yeni Oyun' : 'New Game'}
+                </button>
+                </div>
+        </motion.div>
+              </div>
     )
   }
   
   // Game screen
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-4">
-      <div className="max-w-7xl mx-auto">
+      <div className="max-w-[1800px] mx-auto">
         {/* Header */}
         <div className="bg-slate-800/50 backdrop-blur-xl rounded-2xl border border-slate-700/50 p-4 mb-4">
           <div className="flex justify-between items-center">
-                    <div>
+            <div>
               <h1 className="text-2xl font-bold text-white">{tr('title')}</h1>
               <p className="text-slate-400">
                 {getMapById(selectedMap)?.name} • {tr('turn')} {turn}
               </p>
-                </div>
+            </div>
 
             {currentPlayer && (
               <div className="flex items-center gap-4">
                 <div className="text-right">
                   <div className="text-sm text-slate-400">{tr('currentPlayer')}</div>
-                  <div className="text-xl font-bold text-white">{currentPlayer.name}</div>
-                    </div>
+                  <div className="text-xl font-bold text-white flex items-center gap-2">
+                    {currentPlayer.name}
+                    {!currentPlayer.isHuman && (
+                      <span className="text-xs px-2 py-1 bg-purple-500/20 text-purple-300 rounded">
+                        🤖 AI
+                      </span>
+                    )}
+              </div>
+              </div>
                 <div
-                  className="w-16 h-16 rounded-full border-4"
+                  className="w-16 h-16 rounded-full border-4 animate-pulse"
                   style={{ borderColor: currentPlayer.color, backgroundColor: currentPlayer.color + '40' }}
                 />
-                  </div>
-            )}
               </div>
-                </div>
-
-        <div className="grid lg:grid-cols-3 gap-4">
+            )}
+            </div>
+          </div>
+        
+        <div className="grid lg:grid-cols-5 xl:grid-cols-6 gap-4">
           {/* Map */}
-          <div className="lg:col-span-2">
-            <div className="bg-slate-800/50 backdrop-blur-xl rounded-2xl border border-slate-700/50 p-6">
+          <div className="lg:col-span-4 xl:col-span-5">
+            <div className="bg-slate-800/50 backdrop-blur-xl rounded-2xl border border-slate-700/50 p-4">
               <h2 className="text-xl font-bold text-white mb-4">
-                {getMapById(selectedMap)?.name}
+                {getMapById(selectedMap)?.name} • {territories.length} bölge
               </h2>
               
-              {/* Simple territory list for now */}
-              <div className="grid grid-cols-3 gap-2 max-h-[600px] overflow-y-auto">
-                {mapDefinition?.territories.map((territory) => {
-                  const state = getTerritoryState(territory.id)
-                  const owner = state ? players[state.ownerId] : null
-                  const isSelected = 
-                    (phase === 'attack' && (attackFrom === territory.id || attackTo === territory.id)) ||
-                    (phase === 'fortify' && (fortifyFrom === territory.id || fortifyTo === territory.id))
-                  
-                  return (
-                <button
-                      key={territory.id}
-                  onClick={() => {
-                        if (phase === 'draft' && state && state.ownerId === currentPlayer?.id) {
-                          placeDraftArmy(territory.id)
-                        } else if (phase === 'attack') {
-                          if (!attackFrom) {
-                            selectAttackFrom(territory.id)
-                          } else {
-                            selectAttackTo(territory.id)
-                          }
-                        } else if (phase === 'fortify') {
-                          if (!fortifyFrom) {
-                            selectFortifyFrom(territory.id)
-                          } else {
-                            selectFortifyTo(territory.id)
-                          }
+              <div className="h-[90vh]">
+              
+              {mapDefinition ? (
+                territories.length > 0 ? (
+                  <RealMap
+                    mapId={selectedMap as 'world' | 'turkey' | 'europe'}
+                    mapDefinition={mapDefinition}
+                    territories={territories}
+                    players={players}
+                    selected={{ from: attackFrom || undefined, to: attackTo || undefined }}
+                    onTerritoryClick={(territoryId) => {
+                      // Avoid placement/draft double placement via click; handled by hold/mouseup
+                      if (phase === 'placement' || phase === 'draft') {
+                        return
+                      }
+                      
+                      if (phase === 'attack') {
+                        if (lastBattleResult && !lastBattleResult.conquered) {
+                          useGameStore.setState({ 
+                            lastBattleResult: null,
+                            attackFrom: null,
+                            attackTo: null 
+                          })
+                          return
                         }
-                      }}
-                      className={`p-3 rounded-lg border-2 transition-all text-left ${
-                        isSelected
-                          ? 'border-amber-400 shadow-lg scale-105'
-                          : owner
-                          ? 'border-slate-600 hover:border-slate-500'
-                          : 'border-slate-700 bg-slate-900/50'
-                      }`}
-                      style={{
-                        backgroundColor: owner ? owner.color + '30' : undefined,
-                        borderColor: isSelected ? '#fbbf24' : (owner?.color || '#475569')
-                      }}
-                    >
-                      <div className="text-xs font-semibold text-white truncate">
-                        {territory.name}
-                      </div>
-                      {state && (
-                        <div className="flex items-center justify-between mt-1">
-                          <span className="text-xs text-slate-300">{owner?.name.substring(0, 8)}</span>
-                          <span className="text-sm font-bold text-white">
-                            {state.armies} 🎖️
-                    </span>
-                        </div>
-                      )}
-                </button>
-                  )
-                })}
-                </div>
-              </div>
+                        if (!attackFrom) {
+                          selectAttackFrom(territoryId)
+                        } else if (attackFrom === territoryId) {
+                          useGameStore.setState({ attackFrom: null, attackTo: null })
+                        } else {
+                          selectAttackTo(territoryId)
+                        }
+                      } 
+                      else if (phase === 'fortify') {
+                        if (!fortifyFrom) {
+                          selectFortifyFrom(territoryId)
+                        } else if (fortifyFrom === territoryId) {
+                          useGameStore.setState({ fortifyFrom: null, fortifyTo: null })
+                        } else {
+                          selectFortifyTo(territoryId)
+                        }
+                      }
+                    }}
+                    onTerritoryMouseDown={(territoryId) => {
+                      // Only enable hold in draft; in sequential reinforcement place exactly 1 per step
+                      const canPlace = () => {
+                        const st = getTerritoryState(territoryId)
+                        if (phase === 'placement') return false
+                        if (phase === 'draft') return st?.ownerId === currentPlayer?.id
+                        return false
+                      }
+                      if (!canPlace()) return
+                      holdActiveRef.current = territoryId
+                      holdDelayRef.current = 220
+                      holdCountRef.current = 0
+                      ;(holdFiredRef as any).current = false
+                      const tick = () => {
+                        if (holdActiveRef.current !== territoryId) return
+                        placeDraftArmy(territoryId)
+                        holdCountRef.current += 1
+                        ;(holdFiredRef as any).current = true
+                        const stillCan = canPlace()
+                        if (!stillCan) { holdActiveRef.current = null; return }
+                        // accelerate
+                        if (holdCountRef.current > 20) holdDelayRef.current = 80
+                        if (holdCountRef.current > 40) holdDelayRef.current = 60
+                        holdTimerRef.current = window.setTimeout(tick, holdDelayRef.current)
+                      }
+                      tick()
+                    }}
+                    onTerritoryMouseUp={(territoryId) => {
+                      const stop = () => {
+                        if (holdTimerRef.current) {
+                          window.clearTimeout(holdTimerRef.current)
+                          holdTimerRef.current = null
+                        }
+                        holdActiveRef.current = null
+                      }
+                      const fired = (holdFiredRef as any).current === true
+                      stop()
+                      if (phase === 'placement') {
+                        const st = getTerritoryState(territoryId)
+                        if (placementStage === 'claim' && st?.ownerId === -1) placeDraftArmy(territoryId)
+                        else if (placementStage === 'distribute' && st?.ownerId === currentPlayer?.id) placeDraftArmy(territoryId)
+                      } else if (!fired && phase === 'draft') {
+                        const st = getTerritoryState(territoryId)
+                        if (st?.ownerId === currentPlayer?.id) placeDraftArmy(territoryId)
+                      }
+                      ;(holdFiredRef as any).current = false
+                    }}
+                    currentPlayerId={currentPlayer ? currentPlayer.id : -1}
+                    phase={phase}
+                    suggestedId={suggestedTerritoryId}
+                  />
+                ) : (
+                  <div className="flex items-center justify-center h-full">
+                    <div className="text-slate-400">Loading map...</div>
             </div>
-
+                )
+              ) : (
+                <div className="flex items-center justify-center h-full">
+                  <div className="text-slate-400">No map selected</div>
+                    </div>
+              )}
+                    </div>
+                  </div>
+                 </div>
           {/* Control Panel */}
-          <div className="space-y-4">
+          <div className="lg:col-span-1 xl:col-span-1 space-y-4">
+            {toast && (
+              <div className="bg-emerald-500/20 text-emerald-200 border border-emerald-400/40 p-3 rounded-lg text-sm">
+                {toast}
+              </div>
+            )}
+            {phaseInfo && (
+              <div className="bg-slate-700/40 text-slate-200 border border-slate-600/50 p-3 rounded-lg text-xs">
+                {phaseInfo}
+                  </div>
+                )}
             {/* Phase Info */}
             <div className="bg-slate-800/50 backdrop-blur-xl rounded-2xl border border-slate-700/50 p-4">
               <h3 className="text-lg font-bold text-white mb-3">{tr('phase')}</h3>
-              
+
+              {phase === 'placement' && (
+                <div className="space-y-3">
+                  <div className="text-center p-4 bg-emerald-500/20 border border-emerald-500/50 rounded-lg">
+                    <div className="text-xl font-bold text-white">{tr('reinforcementPhase')}</div>
+                  </div>
+                  {placementStage === 'claim' ? (
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="text-center p-4 bg-sky-500/20 border border-sky-500/40 rounded-lg">
+                        <div className="text-xs text-sky-300">Kalan Nötr Bölge</div>
+                        <div className="text-2xl font-bold text-white">
+                          {territories.filter(t => t.ownerId === -1).length}
+                        </div>
+                      </div>
+                      <div className="text-center p-4 bg-emerald-500/20 border border-emerald-500/40 rounded-lg">
+                        <div className="text-xs text-emerald-300">Sıradaki</div>
+                        <div className="text-2xl font-bold text-white">{currentPlayer?.name}</div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-center p-4 bg-emerald-500/20 border border-emerald-500/50 rounded-lg">
+                      <div className="text-sm text-emerald-300">{tr('armiesToPlace')}</div>
+                      <div className="text-3xl font-bold text-white">{draftArmies}</div>
+                    </div>
+                  )}
+                  <div className="p-3 bg-slate-700/30 rounded-lg">
+                    <p className="text-xs text-slate-400 text-center">
+                      {placementStage === 'claim' 
+                        ? (config.language === 'tr' ? 'Boş bölgeye tıklayıp sahiplenin' : 'Click a neutral territory to claim it')
+                        : (config.language === 'tr' ? 'Sırayla kendi bölgelerinize asker yerleştirin' : 'Place armies on your territories in turns')}
+                    </p>
+                    </div>
+                  {placementReserves && (
+                    <div className="p-3 bg-slate-800/60 rounded-lg border border-slate-700/50">
+                      <div className="text-xs text-slate-400 mb-2">Kalan Rezervler</div>
+                      <div className="space-y-1">
+                        {players.map((p, idx) => (
+                          <div key={p.id} className="grid grid-cols-12 items-center gap-2">
+                            <div className="col-span-6 flex items-center gap-2">
+                              <div className="w-2 h-2 rounded-full" style={{ backgroundColor: p.color }} />
+                              <div className="text-sm text-white">{p.name}</div>
+                            </div>
+                            <div className="col-span-3 text-xs text-slate-300">Rezerv: {placementReserves[idx] || 0}</div>
+                            <div className="col-span-3 text-xs text-slate-300 text-right">
+                              Bölge: {territories.filter(t => t.ownerId === p.id).length}
+                            </div>
+                            <div className="col-span-12 flex-1 h-1 bg-slate-700 rounded">
+                              <div className="h-1 rounded" style={{ width: `${Math.min(100, ((placementReserves[idx]||0)/10)*100)}%`, backgroundColor: p.color }} />
+                            </div>
+                          </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  {suggestedTerritoryId && (
+                    <div className="flex items-center justify-between bg-amber-500/10 border border-amber-500/30 rounded-lg px-3 py-2">
+                      <div className="text-xs text-amber-300">Öneri</div>
+                      <div className="text-sm text-white">
+                        {mapDefinition?.territories.find(t => t.id === suggestedTerritoryId)?.name}
+                  </div>
+                      <button
+                        onClick={() => placeDraftArmy(suggestedTerritoryId)}
+                        className="text-xs px-2 py-1 bg-amber-500 hover:bg-amber-600 text-white rounded"
+                      >
+                        Uygula
+                      </button>
+                    </div>
+                  )}
+                  </div>
+                )}
+
               {phase === 'draft' && (
                 <div className="space-y-3">
                   <div className="text-center p-4 bg-emerald-500/20 border border-emerald-500/50 rounded-lg">
                     <div className="text-sm text-emerald-300">{tr('armiesToPlace')}</div>
                     <div className="text-3xl font-bold text-white">{draftArmies}</div>
-              </div>
-                  <p className="text-sm text-slate-400 text-center">
-                    {tr('selectTerritory')}
-                  </p>
-          </div>
-        )}
-
+                      </div>
+                  <div className="p-3 bg-slate-700/30 rounded-lg">
+                    <p className="text-xs text-slate-400 text-center">
+                      {config.language === 'tr' 
+                        ? `Bu tur takviye: +${useGameStore.getState().calculateDraftArmies()}`
+                        : `This turn reinforcement: +${useGameStore.getState().calculateDraftArmies()}`}
+                    </p>
+                      </div>
+                        </div>
+                      )}
+                
               {phase === 'attack' && (
                 <div className="space-y-3">
                   <div className="text-center p-4 bg-red-500/20 border border-red-500/50 rounded-lg">
                     <div className="text-xl font-bold text-white">{tr('attackPhase')}</div>
-            </div>
+                  </div>
+                  
+                  {!attackFrom && !attackTo && (
+                    <div className="p-3 bg-slate-700/30 rounded-lg">
+                      <p className="text-xs text-slate-400 text-center">
+                        {config.language === 'tr' 
+                          ? '1. Saldıracak bölgenizi seçin (en az 2 asker olmalı)' 
+                          : '1. Select your attacking territory (min 2 armies)'}
+                      </p>
+                  </div>
+                )}
 
+                  {attackFrom && !attackTo && (
+                    <div className="p-3 bg-slate-700/30 rounded-lg">
+                      <p className="text-xs text-slate-400 text-center">
+                        {config.language === 'tr' 
+                          ? '2. Saldırılacak düşman bölgesini seçin (kırmızı yanıp sönen)' 
+                          : '2. Select enemy territory to attack (pulsing red)'}
+                      </p>
+                        </div>
+                      )}
+                
                   {attackFrom && (
-                    <div className="p-3 bg-slate-700/50 rounded-lg">
-                      <div className="text-xs text-slate-400">{tr('selectAttackFrom')}</div>
-                      <div className="font-bold text-white">
-                        {mapDefinition?.territories.find(t => t.id === attackFrom)?.name}
-                    </div>
-                    </div>
-                  )}
-                  
-                  {attackTo && (
-                    <div className="p-3 bg-slate-700/50 rounded-lg">
-                      <div className="text-xs text-slate-400">{tr('selectAttackTo')}</div>
-                      <div className="font-bold text-white">
-                        {mapDefinition?.territories.find(t => t.id === attackTo)?.name}
-                      </div>
-                  </div>
-                )}
-                  
-                  {attackFrom && attackTo && !lastBattleResult && (
-                    <div className="space-y-2">
-                      <button
-                        onClick={() => {
-                          const fromState = getTerritoryState(attackFrom)
-                          const toState = getTerritoryState(attackTo)
-                          if (fromState && toState) {
-                            const attackerDice = Math.min(3, fromState.armies - 1)
-                            const defenderDice = Math.min(2, toState.armies)
-                            executeAttack(attackerDice, defenderDice)
-                          }
-                        }}
-                        className="w-full py-3 bg-red-500 text-white font-bold rounded-lg hover:bg-red-600"
-                      >
-                        ⚔️ {tr('attack')}
-                      </button>
+                    <div className="p-3 bg-red-500/20 border border-red-500/50 rounded-lg">
+                      <div className="text-xs text-red-300">{tr('selectAttackFrom')}</div>
+                      <div className="font-bold text-white flex items-center justify-between" />
                   </div>
                 )}
 
-                  {lastBattleResult?.conquered && (
-                    <div className="space-y-2">
-                      <div className="p-3 bg-emerald-500/20 border border-emerald-500/50 rounded-lg text-center">
-                        <div className="text-emerald-300 font-bold">{tr('conquered')}</div>
-                      </div>
-                    <button
-                      onClick={() => {
-                          const fromState = getTerritoryState(attackFrom!)
-                          if (fromState) {
-                            conquestMove(Math.max(1, fromState.armies - 1))
-                          }
-                        }}
-                        className="w-full py-2 bg-emerald-500 text-white font-bold rounded-lg hover:bg-emerald-600"
-                      >
-                        {tr('moveArmies')}
-                    </button>
+                  {attackTo && (
+                    <div className="p-3 bg-blue-500/20 border border-blue-500/50 rounded-lg">
+                      <div className="text-xs text-blue-300">{tr('selectAttackTo')}</div>
+                      <div className="font-bold text-white"></div>
                   </div>
                 )}
                 
-                  <button
+                  {attackFrom && attackTo && !lastBattleResult && (
+                    <div className="space-y-2">
+                      <div className="grid grid-cols-2 gap-2 text-xs text-slate-300">
+                        <div>
+                          Saldıran: {Math.min(3, (getTerritoryState(attackFrom)?.armies || 1) - 1)} zar
+                        </div>
+                        <div>
+                          Savunan: {Math.min(2, getTerritoryState(attackTo)?.armies || 1)} zar
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <button
+                          onClick={() => {
+                            const fromState = getTerritoryState(attackFrom)
+                            const toState = getTerritoryState(attackTo)
+                            if (fromState && toState) {
+                              const attackerDice = Math.min(3, fromState.armies - 1)
+                              const defenderDice = Math.min(2, toState.armies)
+                              executeAttack(attackerDice, defenderDice)
+                            }
+                          }}
+                          className="w-full py-3 bg-red-500 text-white font-bold rounded-lg hover:bg-red-600"
+                        >
+                          ⚔️ {tr('attack')}
+                        </button>
+                        <button
+                          onClick={() => {
+                            // All-in attack loop on UI (even if normal speed)
+                            let loopGuard = 0
+                            while (loopGuard < 200) {
+                              loopGuard++
+                              const fromState = getTerritoryState(attackFrom!)
+                              const toState = getTerritoryState(attackTo!)
+                              if (!fromState || !toState) break
+                              if (fromState.armies <= 1) break
+                              const attackerDice = Math.min(3, fromState.armies - 1)
+                              const defenderDice = Math.min(2, toState.armies)
+                              executeAttack(attackerDice, defenderDice)
+                              const lr = useGameStore.getState().lastBattleResult
+                              if (lr?.conquered) break
+                            }
+                          }}
+                          className="w-full py-3 bg-amber-500 text-white font-bold rounded-lg hover:bg-amber-600"
+                        >
+                          ⚡ All‑in
+                    </button>
+                      </div>
+                  </div>
+                )}
+                
+                  {lastBattleResult && !lastBattleResult.conquered && (
+                    <div className="p-3 bg-slate-700/50 rounded-lg text-center space-y-2">
+                      <div className="text-xs text-slate-400">Sonuç</div>
+                      <div className="flex items-center justify-center gap-4">
+                        <div>
+                          <div className="text-[10px] text-slate-400">Attacker</div>
+                          <div className="flex gap-1 justify-center">
+                            {(lastBattleResult.attackerRolls || []).map((r, i) => (
+                              <span key={i} className="px-2 py-1 rounded bg-red-600/30 border border-red-400/40 text-white text-xs">{r}</span>
+                            ))}
+                    </div>
+                    </div>
+                        <div>
+                          <div className="text-[10px] text-slate-400">Defender</div>
+                          <div className="flex gap-1 justify-center">
+                            {(lastBattleResult.defenderRolls || []).map((r, i) => (
+                              <span key={i} className="px-2 py-1 rounded bg-blue-600/30 border border-blue-400/40 text-white text-xs">{r}</span>
+                            ))}
+                  </div>
+                        </div>
+                      </div>
+                      <div className="text-sm text-red-300">Saldıran: -{lastBattleResult.attackerLosses}</div>
+                      <div className="text-sm text-blue-300">Savunan: -{lastBattleResult.defenderLosses}</div>
+                    <button
+                      onClick={() => {
+                          useGameStore.setState({ 
+                            lastBattleResult: null,
+                            attackFrom: null,
+                            attackTo: null 
+                          })
+                        }}
+                        className="mt-2 w-full py-1 bg-slate-600 text-white text-xs rounded hover:bg-slate-700"
+                      >
+                        Devam Et
+                    </button>
+                  </div>
+                )}
+
+                  {lastBattleResult?.conquered && attackFrom && (
+                    <div className="space-y-2">
+                      <div className="p-3 bg-emerald-500/20 border border-emerald-500/50 rounded-lg text-center">
+                        <div className="text-emerald-300 font-bold">{tr('conquered')}</div>
+            </div>
+
+                      <div className="space-y-2">
+                        <label className="text-sm text-slate-300">
+                          {tr('moveArmies')}: {conquestArmies}
+                        </label>
+                        <input
+                          type="range"
+                          min="1"
+                          max={Math.max(1, (getTerritoryState(attackFrom)?.armies || 1) - 1)}
+                          value={conquestArmies}
+                          onChange={(e) => setConquestArmies(parseInt(e.target.value))}
+                          className="w-full"
+                        />
+                        <div className="text-xs text-slate-400">
+                          Kaynakta {(getTerritoryState(attackFrom)?.armies || 1) - conquestArmies} asker kalacak
+                        </div>
+                      </div>
+                      
+                    <button
+                      onClick={() => {
+                          conquestMove(conquestArmies)
+                          setConquestArmies(1)
+                        }}
+                        className="w-full py-2 bg-emerald-500 text-white font-bold rounded-lg hover:bg-emerald-600"
+                      >
+                        ✓ Taşı
+                    </button>
+                    <button
+                      onClick={() => {
+                          const maxMove = Math.max(1, (getTerritoryState(attackFrom!)?.armies || 1) - 1)
+                          setConquestArmies(maxMove)
+                          conquestMove(maxMove)
+                          setConquestArmies(1)
+                        }}
+                        className="w-full mt-2 py-2 bg-emerald-700 text-white font-bold rounded-lg hover:bg-emerald-800"
+                      >
+                        ➤ Tamamını Taşı
+                    </button>
+                  </div>
+                )}
+
+                      <button
                     onClick={endAttackPhase}
                     className="w-full py-2 bg-slate-600 text-white rounded-lg hover:bg-slate-700"
                   >
                     {tr('endAttack')}
                   </button>
-                  </div>
-                )}
+                        </div>
+                      )}
 
               {phase === 'fortify' && (
                 <div className="space-y-3">
                   <div className="text-center p-4 bg-blue-500/20 border border-blue-500/50 rounded-lg">
                     <div className="text-xl font-bold text-white">{tr('fortifyPhase')}</div>
-                  </div>
+                            </div>
                   
+                  {!fortifyFrom && !fortifyTo && (
+                    <div className="p-3 bg-slate-700/30 rounded-lg">
+                      <p className="text-xs text-slate-400 text-center">
+                        {config.language === 'tr' 
+                          ? 'Komşu bölgeleriniz arasında asker taşıyabilirsiniz veya turu atlayın' 
+                          : 'Move armies between your adjacent territories or skip turn'}
+                      </p>
+                    </div>
+                  )}
+
+                  {fortifyFrom && (
+                    <div className="p-3 bg-slate-700/50 rounded-lg">
+                      <div className="text-xs text-slate-400">Kaynak</div>
+                      <div className="font-bold text-white">
+                        {mapDefinition?.territories.find(t => t.id === fortifyFrom)?.name}
+                </div>
+              </div>
+                )}
+                
+                  {fortifyTo && (
+                    <div className="p-3 bg-slate-700/50 rounded-lg">
+                      <div className="text-xs text-slate-400">Hedef</div>
+                      <div className="font-bold text-white">
+                        {mapDefinition?.territories.find(t => t.id === fortifyTo)?.name}
+                            </div>
+                      </div>
+                  )}
+
                   {fortifyFrom && fortifyTo && (
-                    <button
+                    <div className="space-y-2">
+                      <label className="text-sm text-slate-300">
+                        Taşınacak Asker: {fortifyArmies}
+                      </label>
+                      <input
+                        type="range"
+                        min="1"
+                        max={Math.max(1, (getTerritoryState(fortifyFrom)?.armies || 1) - 1)}
+                        value={fortifyArmies}
+                        onChange={(e) => setFortifyArmies(parseInt(e.target.value))}
+                        className="w-full"
+                      />
+                      <div className="text-xs text-slate-400">
+                        Kaynakta {(getTerritoryState(fortifyFrom)?.armies || 1) - fortifyArmies} asker kalacak
+            </div>
+          <button
                       onClick={() => {
-                        const fromState = getTerritoryState(fortifyFrom)
-                        if (fromState) {
-                          executeFortify(Math.max(1, fromState.armies - 1))
-                        }
-                      }}
-                      className="w-full py-3 bg-blue-500 text-white font-bold rounded-lg hover:bg-blue-600"
-                    >
-                      {tr('fortify')}
+                          executeFortify(fortifyArmies)
+                          setFortifyArmies(1)
+                        }}
+                        className="w-full py-3 bg-blue-500 text-white font-bold rounded-lg hover:bg-blue-600"
+                      >
+                        ✓ {tr('fortify')}
                     </button>
+                  </div>
                 )}
                   
-                    <button
-                    onClick={() => executeFortify(0)}
+          <button
+            onClick={() => {
+                      // End turn -> next draft; show hint for next player's reinforcement
+                      const nextIdx = (currentPlayerIndex + 1) % players.length
+                      const nextName = players[nextIdx]?.name || ''
+                      // compute after store updates; slight delay
+                      setTimeout(() => {
+                        const armies = useGameStore.getState().calculateDraftArmies()
+                        setToast(`${nextName}: +${armies} ${tr('armies')}`)
+                        setTimeout(()=> setToast(null), 2500)
+                      }, 150)
+                      executeFortify(0)
+                    }}
                     className="w-full py-2 bg-slate-600 text-white rounded-lg hover:bg-slate-700"
                   >
                     {tr('endTurn')}
-                    </button>
-                  </div>
+          </button>
+        </div>
                 )}
-                          </div>
-            
+      </div>
+
+            {/* Cards Panel */}
+            <div className="bg-slate-800/50 backdrop-blur-xl rounded-2xl border border-slate-700/50 p-4">
+              <h3 className="text-lg font-bold text-white mb-3">{tr('cards')}</h3>
+              {currentPlayer ? (
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-sm">
+                    {(currentPlayer.cards || []).map((c, idx) => (
+                      <span
+                        key={idx}
+                        className={`px-2 py-1 rounded border text-white ${
+                          c.type === 'infantry'
+                            ? 'bg-emerald-600/30 border-emerald-400/40'
+                            : c.type === 'cavalry'
+                            ? 'bg-blue-600/30 border-blue-400/40'
+                            : c.type === 'artillery'
+                            ? 'bg-red-600/30 border-red-400/40'
+                            : 'bg-purple-600/30 border-purple-400/40'
+                        }`}
+                      >
+                        {c.type}
+                      </span>
+                    ))}
+                    {(!currentPlayer.cards || currentPlayer.cards.length === 0) && (
+                      <span className="text-slate-400 text-xs">
+                        {config.language === 'tr' ? 'Kart yok' : 'No cards'}
+                      </span>
+                    )}
+                  </div>
+                  <button
+                    disabled={!currentPlayer.cards || currentPlayer.cards.length < 3}
+                    onClick={() => redeemCards()}
+                    className={`px-3 py-2 rounded text-sm font-semibold ${
+                      currentPlayer.cards && currentPlayer.cards.length >= 3
+                        ? 'bg-amber-500 hover:bg-amber-600 text-white'
+                        : 'bg-slate-700 text-slate-400 cursor-not-allowed'
+                    }`}
+                  >
+                    {currentPlayer.cards && currentPlayer.cards.length >= 3
+                      ? tr('redeem3')
+                      : tr('need3')}
+                  </button>
+                </div>
+              ) : (
+                <div className="text-xs text-slate-400">
+                  {config.language === 'tr' ? 'Oyuncu yok' : 'No player'}
+                </div>
+              )}
+            </div>
+
             {/* Players */}
             <div className="bg-slate-800/50 backdrop-blur-xl rounded-2xl border border-slate-700/50 p-4">
               <h3 className="text-lg font-bold text-white mb-3">Oyuncular</h3>
@@ -482,29 +1071,55 @@ function App() {
                   const armyCount = territories
                     .filter(t => t.ownerId === player.id)
                     .reduce((sum, t) => sum + t.armies, 0)
+                  
+                  // Calculate continent bonuses for this player
+                  const continentBonuses: string[] = []
+                  mapDefinition?.continents.forEach(continent => {
+                    const continentTerritories = mapDefinition.territories.filter(
+                      t => t.continent === continent.id
+                    )
+                    const ownedInContinent = continentTerritories.filter(ct =>
+                      territories.find(ts => ts.id === ct.id)?.ownerId === player.id
+                    )
+                    
+                    if (ownedInContinent.length === continentTerritories.length) {
+                      continentBonuses.push(`${continent.name} (+${continent.bonus})`)
+                    }
+                  })
                       
                       return (
                     <div
                       key={player.id}
-                      className={`p-3 rounded-lg border-2 ${
+                      className={`p-3 rounded-lg border-2 transition-all ${
                         player.id === currentPlayer?.id
-                          ? 'border-amber-400 bg-amber-500/10'
+                          ? 'border-amber-400 bg-amber-500/10 shadow-md'
                           : 'border-slate-600'
                       }`}
                       style={{ borderLeftWidth: '4px', borderLeftColor: player.color }}
                     >
-                      <div className="font-bold text-white">{player.name}</div>
-                      <div className="text-xs text-slate-400">
+                      <div className="font-bold text-white flex items-center gap-2">
+                        {player.name}
+                        {!player.isHuman && (
+                          <span className="text-xs text-purple-400">🤖</span>
+                        )}
+            </div>
+                      <div className="text-xs text-slate-400 mt-1">
                         {territoryCount} bölge • {armyCount} asker
-              </div>
-                        </div>
-                      )
-                    })}
-                  </div>
-                            </div>
-                      </div>
-                  </div>
-                </div>
+          </div>
+                      {continentBonuses.length > 0 && (
+                        <div className="text-xs text-amber-400 mt-1 flex items-center gap-1">
+                          <span>👑</span>
+                          {continentBonuses.join(', ')}
+        </div>
+      )}
+            </div>
+                          )
+                        })}
+          </div>
+        </div>
+            </div>
+            </div>
+          </div>
     </div>
   )
 }

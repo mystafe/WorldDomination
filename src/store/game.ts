@@ -2,7 +2,7 @@ import { create } from "zustand"
 import { createRng } from "../lib/random"
 import { getMapById, type MapDefinition } from "../data/territories"
 
-export type GamePhase = "setup" | "draft" | "attack" | "fortify"
+export type GamePhase = "setup" | "placement" | "draft" | "attack" | "fortify"
 
 export interface Player {
   id: number
@@ -14,7 +14,7 @@ export interface Player {
 }
 
 export interface TerritoryCard {
-  territory: string
+  territory?: string
   type: "infantry" | "cavalry" | "artillery" | "wild"
 }
 
@@ -24,9 +24,17 @@ export interface TerritoryState {
   armies: number
 }
 
+export interface GameSettings {
+  placementMode: 'random' | 'sequential'
+  battleSpeed: 'instant' | 'normal'
+  battleModel: 'realistic' | 'random'
+  resourceLevel: 'low' | 'medium' | 'high'
+  attackMode: 'single' | 'all-in'
+}
+
 export interface GameState {
   // Map selection
-  selectedMap: string // 'world', 'turkey', or 'europe'
+  selectedMap: 'world' | 'turkey' | 'europe'
   mapDefinition: MapDefinition | null
   
   // Game setup
@@ -48,18 +56,29 @@ export interface GameState {
     attackerLosses: number
     defenderLosses: number
     conquered: boolean
+    attackerRolls?: number[]
+    defenderRolls?: number[]
   } | null
   
   // Fortify phase
   fortifyFrom: string | null
   fortifyTo: string | null
   
+  // Cards and bonuses
+  cardsDeck: TerritoryCard[]
+  conquestMadeThisTurn?: boolean
+  
+  // Settings
+  settings: GameSettings
+  setSettings: (s: Partial<GameSettings>) => void
+  redeemCards: () => { success: boolean }
+  
   // History
   history: HistoryEntry[]
   
   // Actions
-  setMap: (mapId: string) => void
-  initGame: (playerNames: string[], humanPlayers: number) => void
+  setMap: (mapId: 'world' | 'turkey' | 'europe') => void
+  initGame: (playerNames: string[], humanPlayers: number, placementModeOverride?: 'random' | 'sequential') => void
   
   // Draft phase
   calculateDraftArmies: () => number
@@ -83,8 +102,14 @@ export interface GameState {
   getAdjacentEnemyTerritories: (territoryId: string) => TerritoryState[]
   checkWinCondition: () => boolean
   
+  // AI
+  playAITurn: () => void
+  
   // Reset
   reset: () => void
+  // placement reserves for sequential mode
+  placementReserves?: number[]
+  placementStage?: 'claim' | 'distribute'
 }
 
 export interface HistoryEntry {
@@ -97,12 +122,12 @@ export interface HistoryEntry {
   result?: string
 }
 
-const initialState = {
+const getInitialState = (): GameState => ({
   selectedMap: "world",
   mapDefinition: getMapById("world") || null,
   players: [],
   territories: [],
-  phase: "setup" as GamePhase,
+  phase: "setup",
   currentPlayerIndex: 0,
         turn: 0,
   draftArmies: 0,
@@ -111,38 +136,98 @@ const initialState = {
   lastBattleResult: null,
   fortifyFrom: null,
   fortifyTo: null,
-            history: []
-          }
+        history: [],
+  cardsDeck: [],
+  conquestMadeThisTurn: false,
+  settings: {
+    placementMode: 'random',
+    battleSpeed: 'normal',
+    battleModel: 'realistic',
+    resourceLevel: 'medium',
+    attackMode: 'single'
+  },
+  setSettings: () => {},
+  redeemCards: () => ({ success: false }),
+  setMap: () => {},
+  initGame: () => {},
+  calculateDraftArmies: () => 3,
+  placeDraftArmy: () => false,
+  selectAttackFrom: () => {},
+  selectAttackTo: () => {},
+  executeAttack: () => {},
+  conquestMove: () => {},
+  endAttackPhase: () => {},
+  selectFortifyFrom: () => {},
+  selectFortifyTo: () => {},
+  executeFortify: () => {},
+  getTerritoryState: () => undefined,
+  getPlayerTerritories: () => [],
+  getAdjacentEnemyTerritories: () => [],
+  checkWinCondition: () => false,
+  playAITurn: () => {},
+  reset: () => {},
+  // placement reserves for sequential mode
+  placementReserves: undefined,
+  placementStage: undefined
+})
+
+const initialState = getInitialState()
 
 export const useGameStore = create<GameState>((set, get) => ({
   ...initialState,
   
-  setMap: (mapId: string) => {
+  setSettings: (s) => set((state) => ({ settings: { ...state.settings, ...s } })),
+  redeemCards: () => {
+    const state = get()
+    const currentPlayer = state.players[state.currentPlayerIndex]
+    if (!currentPlayer) return { success: false }
+    if ((currentPlayer.cards?.length || 0) < 3) return { success: false }
+    
+    set((s) => ({
+      players: s.players.map(p => p.id === currentPlayer.id ? { ...p, cards: p.cards.slice(3) } : p),
+      draftArmies: (s.draftArmies || 0) + 6,
+      history: [...s.history, { turn: s.turn, playerId: currentPlayer.id, action: 'draft', result: 'Redeemed 3 cards for 6 armies' }]
+    }))
+        return { success: true }
+  },
+  
+  setMap: (mapId) => {
     const mapDef = getMapById(mapId)
-    if (!mapDef) return
+    if (!mapDef) {
+      console.error('Map not found:', mapId)
+      return
+    }
+    
+    console.log('Setting map:', mapId, 'territories:', mapDef.territories.length)
     
     set({
       selectedMap: mapId,
       mapDefinition: mapDef,
       territories: [],
       players: [],
-      phase: "setup"
+      phase: "setup",
+      placementReserves: undefined
     })
   },
   
-  initGame: (playerNames: string[], humanPlayers: number) => {
+  initGame: (playerNames: string[], humanPlayers: number, placementModeOverride?: 'random' | 'sequential') => {
     const state = get()
-    if (!state.mapDefinition) return
-    
+    if (!state.mapDefinition) {
+      console.error('No map definition loaded!')
+      return
+    }
+
+    const placementMode = placementModeOverride || state.settings.placementMode
+
     const playerColors = [
-      "#EF4444", // red
-      "#3B82F6", // blue
-      "#10B981", // green
-      "#F59E0B", // yellow
-      "#8B5CF6", // purple
-      "#EC4899"  // pink
+      "#EF4444",
+      "#3B82F6",
+      "#10B981",
+      "#F59E0B",
+      "#8B5CF6",
+      "#EC4899"
     ]
-    
+
     const players: Player[] = playerNames.map((name, i) => ({
       id: i,
       name,
@@ -151,49 +236,44 @@ export const useGameStore = create<GameState>((set, get) => ({
       alive: true,
       cards: []
     }))
-    
-    // Initialize all territories as neutral
-    const territories: TerritoryState[] = state.mapDefinition.territories.map(t => ({
-      id: t.id,
-      ownerId: -1,
-      armies: 0
-    }))
-    
-    // Distribute territories randomly among players
-    const rng = createRng(Date.now().toString())
-    const shuffledTerritories = [...territories].sort(() => rng() - 0.5)
-    
-    shuffledTerritories.forEach((territory, index) => {
-      territory.ownerId = index % players.length
-      territory.armies = 1 // Start with 1 army on each territory
-    })
-    
-    // Calculate initial armies based on player count (RISK rules)
-    const initialArmies: Record<number, number> = {
-      2: 40,
-      3: 35,
-      4: 30,
-      5: 25,
-      6: 20
+
+    // Start with all territories neutral
+    const neutralTerritories: TerritoryState[] = state.mapDefinition.territories.map(t => ({ id: t.id, ownerId: -1, armies: 0 }))
+
+    if (placementMode === 'sequential') {
+      set({
+        players,
+        territories: neutralTerritories,
+        phase: 'placement',
+        placementStage: 'claim',
+        currentPlayerIndex: 0,
+        turn: 0,
+        draftArmies: 0,
+        history: [{ turn: 0, playerId: -1, action: 'draft', result: 'Placement claim started' }],
+        cardsDeck: [],
+        conquestMadeThisTurn: false,
+        placementReserves: players.map(()=> 6)
+      })
+      return
     }
-    
-    const armiesPerPlayer = initialArmies[players.length] || 20
-    const armiesUsed = Math.ceil(state.mapDefinition.territories.length / players.length)
-    const remainingArmies = armiesPerPlayer - armiesUsed
-    
+
+    // Random placement: assign 1 per territory and give remaining as reserves
+    const rng = createRng(Date.now().toString())
+    const order = [...neutralTerritories].sort(() => rng() - 0.5)
+    order.forEach((territory, idx) => { territory.ownerId = idx % players.length; territory.armies = 1 })
+
     set({
       players,
-      territories: shuffledTerritories,
-      phase: "draft",
+      territories: order,
+      phase: 'draft',
       currentPlayerIndex: 0,
       turn: 1,
-      draftArmies: remainingArmies,
-      history: [{
-        turn: 0,
-        playerId: -1,
-        action: "draft",
-        result: "Game initialized"
-      }]
+      draftArmies: 6,
+      history: [{ turn: 0, playerId: -1, action: 'draft', result: 'Game initialized' }],
+      cardsDeck: [],
+      conquestMadeThisTurn: false,
+      placementReserves: undefined,
+      placementStage: undefined
     })
   },
   
@@ -230,6 +310,97 @@ export const useGameStore = create<GameState>((set, get) => ({
     const currentPlayer = state.players[state.currentPlayerIndex]
     
     if (!territory || !currentPlayer) return false
+
+    if (state.phase === 'placement') {
+      // Claim stage
+      if (state.placementStage === 'claim') {
+        if (territory.ownerId !== -1) return false
+        set(s => {
+          const nextTerritories = s.territories.map(t => t.id === territoryId ? { ...t, ownerId: currentPlayer.id, armies: 1 } : t)
+          const neutralsLeft = nextTerritories.filter(t => t.ownerId === -1).length
+          const nextIdx = (s.currentPlayerIndex + 1) % s.players.length
+          const moveToDistribute = neutralsLeft === 0
+          return {
+            territories: nextTerritories,
+            currentPlayerIndex: moveToDistribute ? 0 : nextIdx,
+            placementStage: moveToDistribute ? 'distribute' : 'claim',
+            draftArmies: moveToDistribute ? (s.placementReserves?.[0] || 0) : 0,
+            phase: 'placement',
+            turn: 0
+          }
+        })
+        // Kick AI if needed
+        setTimeout(() => {
+          const player = get().players[get().currentPlayerIndex]
+          if (player && !player.isHuman) get().playAITurn()
+        }, 200)
+        return true
+      }
+      // Distribute stage
+      const reserves = (state.placementReserves || [])
+      const left = reserves[state.currentPlayerIndex] || 0
+      if (left <= 0) {
+        // advance to next player with reserves or move to draft
+        let nextIdx = state.currentPlayerIndex
+        for (let i = 0; i < state.players.length; i++) {
+          nextIdx = (nextIdx + 1) % state.players.length
+          if ((reserves[nextIdx] || 0) > 0) break
+        }
+        const allDone = reserves.every(x => (x || 0) === 0)
+        set({
+          currentPlayerIndex: allDone ? 0 : nextIdx,
+          draftArmies: allDone ? 0 : (reserves[nextIdx] || 0),
+          phase: allDone ? 'draft' : 'placement',
+          turn: allDone ? 1 : state.turn
+        })
+        if (get().phase === 'draft' && get().turn === 1) {
+          set({ draftArmies: get().calculateDraftArmies() })
+          // If first draft player is AI, trigger AI
+          setTimeout(() => {
+            const player = get().players[get().currentPlayerIndex]
+            if (player && !player.isHuman) get().playAITurn()
+          }, 200)
+        } else {
+          setTimeout(() => {
+            const player = get().players[get().currentPlayerIndex]
+            if (player && !player.isHuman) get().playAITurn()
+          }, 200)
+        }
+        return false
+      }
+      if (territory.ownerId !== currentPlayer.id) return false
+      set(s => {
+        const nextRes = [...(s.placementReserves || [])]
+        nextRes[s.currentPlayerIndex] = Math.max(0, (nextRes[s.currentPlayerIndex] || 0) - 1)
+        // move to next player with reserves
+        let nextIdx = s.currentPlayerIndex
+        for (let i = 0; i < s.players.length; i++) {
+          nextIdx = (nextIdx + 1) % s.players.length
+          if ((nextRes[nextIdx] || 0) > 0) break
+        }
+        const allDone = nextRes.every(x => (x || 0) === 0)
+        return {
+          territories: s.territories.map(t => t.id === territoryId ? { ...t, armies: t.armies + 1 } : t),
+          placementReserves: nextRes,
+          currentPlayerIndex: allDone ? 0 : nextIdx,
+          draftArmies: allDone ? 0 : (nextRes[nextIdx] || 0),
+          phase: allDone ? 'draft' : 'placement',
+          turn: allDone ? 1 : s.turn
+        }
+      })
+      if (get().phase === 'draft' && get().turn === 1) {
+        set({ draftArmies: get().calculateDraftArmies() })
+      }
+      // Kick AI if needed
+      setTimeout(() => {
+        const player = get().players[get().currentPlayerIndex]
+        if (player && !player.isHuman) get().playAITurn()
+      }, 200)
+      return true
+    }
+
+    // Draft placement (normal turn)
+    if (state.phase !== 'draft') return false
     if (territory.ownerId !== currentPlayer.id) return false
     if (state.draftArmies <= 0) return false
     
@@ -247,9 +418,16 @@ export const useGameStore = create<GameState>((set, get) => ({
       }]
     }))
     
-    // If all draft armies placed, move to attack phase
-    if (get().draftArmies === 0) {
-      set({ phase: "attack" })
+    // If all draft armies placed, move phase
+    const after = get()
+    if (after.draftArmies === 0) {
+      if (after.turn === 1) {
+        set({ phase: 'fortify' }) // disable attack in first round
+      } else {
+        set({ phase: 'attack' })
+      }
+      const player = get().players[get().currentPlayerIndex]
+      if (player && !player.isHuman) setTimeout(() => get().playAITurn(), 300)
     }
     
     return true
@@ -291,52 +469,76 @@ export const useGameStore = create<GameState>((set, get) => ({
     
     if (!fromState || !toState) return
     
-    // Roll dice
-    const rng = createRng(Date.now().toString())
-    const attackerRolls = Array.from({ length: attackerDice }, () => Math.floor(rng() * 6) + 1).sort((a, b) => b - a)
-    const defenderRolls = Array.from({ length: defenderDice }, () => Math.floor(rng() * 6) + 1).sort((a, b) => b - a)
-    
-    let attackerLosses = 0
-    let defenderLosses = 0
-    
-    // Compare dice (RISK rules)
-    const comparisons = Math.min(attackerRolls.length, defenderRolls.length)
-    for (let i = 0; i < comparisons; i++) {
-      if (attackerRolls[i] > defenderRolls[i]) {
-        defenderLosses++
-      } else {
-        attackerLosses++
+    const resolveOnce = () => {
+      // Dice rolls
+      const rng = createRng(Date.now().toString())
+      const aDice = Math.max(1, Math.min(3, attackerDice))
+      const dDice = Math.max(1, Math.min(2, defenderDice))
+      const attackerRolls = Array.from({ length: aDice }, () => Math.floor(rng() * 6) + 1).sort((a, b) => b - a)
+      const defenderRolls = Array.from({ length: dDice }, () => Math.floor(rng() * 6) + 1).sort((a, b) => b - a)
+      
+      let attackerLosses = 0
+      let defenderLosses = 0
+      const comparisons = Math.min(attackerRolls.length, defenderRolls.length)
+      for (let i = 0; i < comparisons; i++) {
+        const ar = attackerRolls[i]
+        const dr = defenderRolls[i]
+        if (get().settings.battleModel === 'random') {
+          const flip = rng()
+          if (flip < 0.52) defenderLosses++
+          else attackerLosses++
+        } else {
+          if (ar > dr) defenderLosses++
+          else attackerLosses++
+        }
       }
+      
+      const newDefenderArmies = toState.armies - defenderLosses
+      const conquered = newDefenderArmies <= 0
+      
+      set(s => ({
+        territories: s.territories.map(t => {
+          if (t.id === s.attackFrom) {
+            return { ...t, armies: Math.max(1, t.armies - attackerLosses) }
+          }
+          if (t.id === s.attackTo) {
+            return { ...t, armies: conquered ? 0 : Math.max(0, newDefenderArmies) }
+          }
+          return t
+        }),
+        lastBattleResult: { attackerLosses, defenderLosses, conquered, attackerRolls, defenderRolls },
+        history: [...s.history, {
+          turn: s.turn,
+          playerId: s.players[s.currentPlayerIndex].id,
+          action: conquered ? "conquered" : "attack",
+          from: s.attackFrom!,
+          to: s.attackTo!,
+          result: `Lost ${attackerLosses}, enemy lost ${defenderLosses}`
+        }],
+        conquestMadeThisTurn: s.conquestMadeThisTurn || conquered
+      }))
+      
+      return conquered
     }
     
-    const newDefenderArmies = toState.armies - defenderLosses
-    const conquered = newDefenderArmies <= 0
-    
-    set(s => ({
-      territories: s.territories.map(t => {
-        if (t.id === s.attackFrom) {
-          return { ...t, armies: t.armies - attackerLosses }
-        }
-        if (t.id === s.attackTo) {
-          return { ...t, armies: conquered ? 0 : newDefenderArmies }
-        }
-        return t
-      }),
-      lastBattleResult: { attackerLosses, defenderLosses, conquered },
-      history: [...s.history, {
-        turn: s.turn,
-        playerId: s.players[s.currentPlayerIndex].id,
-        action: conquered ? "conquered" : "attack",
-        from: s.attackFrom!,
-        to: s.attackTo!,
-        result: `Lost ${attackerLosses}, enemy lost ${defenderLosses}`
-      }]
-    }))
-    
-    // If conquered, wait for user to move armies
-    if (!conquered) {
-      // Reset attack selection if not conquered
-      set({ attackFrom: null, attackTo: null })
+    if (get().settings.battleSpeed === 'instant' || get().settings.attackMode === 'all-in') {
+      // Loop until attacker can't attack or defender conquered
+      let continueBattle = true
+      let safety = 0
+      while (continueBattle && safety < 500) {
+        safety++
+        const fromNow = get().territories.find(t => t.id === get().attackFrom)
+        const toNow = get().territories.find(t => t.id === get().attackTo)
+        if (!fromNow || !toNow) break
+        if (fromNow.armies <= 1) break
+        const attackerDiceNow = Math.min(3, fromNow.armies - 1)
+        const defenderDiceNow = Math.min(2, toNow.armies)
+        const defenderAlive = !resolveOnce()
+        if (!defenderAlive) break
+        if (attackerDiceNow <= 0 || defenderDiceNow <= 0) break
+          }
+        } else {
+      resolveOnce()
     }
   },
   
@@ -369,6 +571,17 @@ export const useGameStore = create<GameState>((set, get) => ({
   },
   
   endAttackPhase: () => {
+    // Award card if conquest happened this turn
+    const state = get()
+    if (state.conquestMadeThisTurn) {
+      set((s) => {
+        const deck = [...s.cardsDeck]
+        const card = deck.pop() || { type: 'wild' }
+        const players = s.players.map((p, i) => i === s.currentPlayerIndex ? { ...p, cards: [...(p.cards||[]), card] } : p)
+        return { players, cardsDeck: deck, conquestMadeThisTurn: false }
+      })
+    }
+    
     set({
       phase: "fortify",
       attackFrom: null,
@@ -406,7 +619,38 @@ export const useGameStore = create<GameState>((set, get) => ({
   
   executeFortify: (armies: number) => {
     const state = get()
-    if (!state.fortifyFrom || !state.fortifyTo) return
+    
+    // Allow skipping fortify by passing 0
+    if (armies === 0 || !state.fortifyFrom || !state.fortifyTo) {
+      // End turn
+      const alivePlayers = state.players.filter(p => p.alive)
+      const currentIndex = alivePlayers.findIndex(p => p.id === state.players[state.currentPlayerIndex].id)
+      const nextIndex = (currentIndex + 1) % alivePlayers.length
+      const nextPlayerId = alivePlayers[nextIndex].id
+      const nextPlayerIndex = state.players.findIndex(p => p.id === nextPlayerId)
+      const newTurn = nextIndex === 0 ? state.turn + 1 : state.turn
+      
+      set({
+        currentPlayerIndex: nextPlayerIndex,
+        turn: newTurn,
+        phase: "draft",
+        draftArmies: 0,
+        fortifyFrom: null,
+        fortifyTo: null
+      })
+      
+      // Calculate draft armies for next player
+      setTimeout(() => {
+        set({ draftArmies: get().calculateDraftArmies() })
+        // Auto-play AI turn
+        const nextPlayer = get().players[get().currentPlayerIndex]
+        if (nextPlayer && !nextPlayer.isHuman) {
+          setTimeout(() => get().playAITurn(), 500)
+        }
+      }, 100)
+      
+      return
+    }
     
     const fromState = state.territories.find(t => t.id === state.fortifyFrom)
     if (!fromState || armies >= fromState.armies || armies < 1) return
@@ -434,15 +678,29 @@ export const useGameStore = create<GameState>((set, get) => ({
     }))
     
     // End turn and move to next player
-    const nextPlayerIndex = (state.currentPlayerIndex + 1) % state.players.filter(p => p.alive).length
-    const newTurn = nextPlayerIndex === 0 ? state.turn + 1 : state.turn
+    const alivePlayers = state.players.filter(p => p.alive)
+    const currentIndex = alivePlayers.findIndex(p => p.id === state.players[state.currentPlayerIndex].id)
+    const nextIndex = (currentIndex + 1) % alivePlayers.length
+    const nextPlayerId = alivePlayers[nextIndex].id
+    const nextPlayerIndex = state.players.findIndex(p => p.id === nextPlayerId)
+    const newTurn = nextIndex === 0 ? state.turn + 1 : state.turn
     
     set({
       currentPlayerIndex: nextPlayerIndex,
       turn: newTurn,
       phase: "draft",
-      draftArmies: get().calculateDraftArmies()
+      draftArmies: 0
     })
+    
+    // Calculate draft armies for next player
+    setTimeout(() => {
+      set({ draftArmies: get().calculateDraftArmies() })
+      // Auto-play AI turn
+      const nextPlayer = get().players[get().currentPlayerIndex]
+      if (nextPlayer && !nextPlayer.isHuman) {
+        setTimeout(() => get().playAITurn(), 500)
+      }
+    }, 100)
   },
   
   getTerritoryState: (territoryId: string) => {
@@ -492,7 +750,99 @@ export const useGameStore = create<GameState>((set, get) => ({
     return false
   },
   
+  // AI
+  playAITurn: () => {
+    const state = get()
+    const currentPlayer = state.players[state.currentPlayerIndex]
+    if (!currentPlayer || currentPlayer.isHuman) {
+      return
+    }
+
+    const pickFirst = <T,>(arr: T[]): T | undefined => arr[0]
+    const pickRandom = <T,>(arr: T[]): T | undefined => arr[Math.floor(Math.random() * arr.length)]
+    const chooser = state.settings.placementMode === 'sequential' ? pickFirst : pickRandom
+
+    // Placement phases
+    if (state.phase === 'placement') {
+      if (state.placementStage === 'claim') {
+        const neutrals = state.territories.filter(t => t.ownerId === -1)
+        if (neutrals.length === 0) return
+        const ordered = neutrals.sort((a,b)=> a.id.localeCompare(b.id))
+        const pick = chooser(ordered)
+        if (pick) get().placeDraftArmy(pick.id)
+        return
+      } else {
+        const myTerritories = state.territories.filter(t => t.ownerId === currentPlayer.id)
+        if (myTerritories.length === 0) return
+        const ordered = myTerritories.sort((a,b)=> a.id.localeCompare(b.id))
+        const pick = chooser(ordered)
+        if (pick) get().placeDraftArmy(pick.id)
+        return
+      }
+    }
+
+    // Draft phase - place all armies
+    if (state.phase === 'draft') {
+      const myTerritories = state.territories.filter(t => t.ownerId === currentPlayer.id)
+      const ordered = myTerritories.sort((a,b)=> a.id.localeCompare(b.id))
+      let safetyCounter = 0
+      while (get().draftArmies > 0 && safetyCounter < 200) {
+        const pick = chooser(ordered)
+        if (!pick) break
+        const success = get().placeDraftArmy(pick.id)
+        if (!success) break
+        safetyCounter++
+      }
+      return
+    }
+
+    // Attack phase - only if not first round
+    if (state.phase === 'attack' && state.turn > 1) {
+      const myAttackers = state.territories.filter(t => t.ownerId === currentPlayer.id && t.armies > 1)
+      const attackersOrdered = myAttackers.sort((a,b)=> a.id.localeCompare(b.id))
+      let attacksMade = 0
+      const maxAttacks = Math.min(3, myAttackers.length)
+      while (attacksMade < maxAttacks) {
+        const fromTerritory = chooser(attackersOrdered)!
+        if (!fromTerritory) break
+        const fromDef = state.mapDefinition?.territories.find(t => t.id === fromTerritory.id)
+        if (!fromDef) break
+        const enemyNeighbors = fromDef.neighbors
+          .map(nId => state.territories.find(t => t.id === nId))
+          .filter(t => t && t.ownerId !== currentPlayer.id) as TerritoryState[]
+        const targetOrdered = enemyNeighbors.sort((a,b)=> a.id.localeCompare(b.id))
+        const target = chooser(targetOrdered)
+        if (!target) { attacksMade++; continue }
+        get().selectAttackFrom(fromTerritory.id)
+        get().selectAttackTo(target.id)
+        const fromState = get().getTerritoryState(fromTerritory.id)
+        const toState = get().getTerritoryState(target.id)
+        if (fromState && toState) {
+          const attackerDice = Math.min(3, fromState.armies - 1)
+          const defenderDice = Math.min(2, toState.armies)
+          get().executeAttack(attackerDice, defenderDice)
+          if (get().lastBattleResult?.conquered) {
+            const updatedFrom = get().getTerritoryState(fromTerritory.id)
+            if (updatedFrom) {
+              const armiesToMove = Math.max(1, Math.floor(updatedFrom.armies / 2))
+              get().conquestMove(armiesToMove)
+            }
+          }
+        }
+        attacksMade++
+      }
+      setTimeout(() => get().endAttackPhase(), 300)
+      return
+    }
+
+    // Fortify phase - skip
+    if (state.phase === 'fortify') {
+      setTimeout(() => get().executeFortify(0), 200)
+      return
+    }
+  },
+  
   reset: () => {
-    set(initialState)
+    set(getInitialState())
   }
 }))

@@ -3,13 +3,23 @@ export interface GameConfig {
   playerCount: number
   humanPlayers: number
   language: 'tr' | 'en'
+  placementMode?: 'random' | 'sequential'
+  battleSpeed?: 'instant' | 'normal'
+  battleModel?: 'realistic' | 'random'
+  resourceLevel?: 'low' | 'medium' | 'high'
+  attackMode?: 'single' | 'all-in'
 }
 
 export const defaultConfig: GameConfig = {
   selectedMap: 'world',
   playerCount: 3,
   humanPlayers: 1,
-  language: 'tr'
+  language: 'tr',
+  placementMode: 'random',
+  battleSpeed: 'normal',
+  battleModel: 'realistic',
+  resourceLevel: 'medium',
+  attackMode: 'single'
 }
 
 const CONFIG_KEY = "risk-game-config"

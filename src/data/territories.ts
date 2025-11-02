@@ -236,7 +236,7 @@ export const EUROPE_MAP: MapDefinition = {
     // Northern Europe
     { id: 'uk', name: 'United Kingdom', continent: 'northern_europe', neighbors: ['ireland', 'iceland'], lat: 55.4, lon: -3.4 },
     { id: 'ireland', name: 'Ireland', continent: 'northern_europe', neighbors: ['uk'], lat: 53.4, lon: -8.2 },
-    { id: 'iceland', name: 'Iceland', continent: 'northern_europe', neighbors: ['uk', 'norway'], lat: 64.9, lon: -19.0 },
+    { id: 'iceland', name: 'Iceland', continent: 'northern_europe', neighbors: ['uk', 'norway'], lat: 60.0, lon: -10.0 },
     { id: 'norway', name: 'Norway', continent: 'northern_europe', neighbors: ['iceland', 'sweden', 'finland'], lat: 60.5, lon: 8.5 },
     { id: 'sweden', name: 'Sweden', continent: 'northern_europe', neighbors: ['norway', 'finland', 'denmark'], lat: 60.1, lon: 18.6 },
     { id: 'denmark', name: 'Denmark', continent: 'northern_europe', neighbors: ['sweden', 'germany'], lat: 56.3, lon: 9.5 },
@@ -251,7 +251,7 @@ export const EUROPE_MAP: MapDefinition = {
     { id: 'ukraine', name: 'Ukraine', continent: 'eastern_europe', neighbors: ['poland', 'slovakia', 'hungary', 'romania', 'moldova', 'russia', 'belarus'], lat: 48.4, lon: 31.2 },
     { id: 'belarus', name: 'Belarus', continent: 'eastern_europe', neighbors: ['poland', 'ukraine', 'russia', 'latvia', 'lithuania'], lat: 53.7, lon: 27.9 },
     { id: 'moldova', name: 'Moldova', continent: 'eastern_europe', neighbors: ['romania', 'ukraine'], lat: 47.4, lon: 28.4 },
-    { id: 'russia', name: 'Russia', continent: 'eastern_europe', neighbors: ['finland', 'belarus', 'ukraine', 'latvia', 'estonia'], lat: 61.5, lon: 105.3 },
+    { id: 'russia', name: 'Russia', continent: 'eastern_europe', neighbors: ['finland', 'belarus', 'ukraine', 'latvia', 'estonia'], lat: 61.5, lon: 35.2433 },
     { id: 'estonia', name: 'Estonia', continent: 'eastern_europe', neighbors: ['russia', 'latvia'], lat: 58.6, lon: 25.0 },
     { id: 'latvia', name: 'Latvia', continent: 'eastern_europe', neighbors: ['estonia', 'russia', 'belarus', 'lithuania'], lat: 56.9, lon: 24.6 },
     { id: 'lithuania', name: 'Lithuania', continent: 'eastern_europe', neighbors: ['latvia', 'belarus', 'poland'], lat: 55.2, lon: 23.9 },
