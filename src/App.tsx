@@ -301,7 +301,7 @@ function App() {
     setConfig(next)
     saveConfig(next)
     // Map GameConfig keys to store settings keys when applicable
-    if (key === 'placementMode' || key === 'battleSpeed' || key === 'battleModel' || key === 'resourceLevel') {
+    if (key === 'placementMode' || key === 'resourceLevel' || key === 'attackMode' || key === 'instantMode') {
       setSettings({ [key]: value } as any)
     }
   }
@@ -311,10 +311,9 @@ function App() {
     // Sync settings from persisted config
     setSettings({
       placementMode: (config.placementMode || 'random') as any,
-      battleSpeed: (config.battleSpeed || 'normal') as any,
-      battleModel: (config.battleModel || 'realistic') as any,
       resourceLevel: (config.resourceLevel || 'medium') as any,
       attackMode: (config.attackMode || 'single') as any,
+      instantMode: !!config.instantMode,
     })
     setMap(config.selectedMap)
     setTimeout(() => {
