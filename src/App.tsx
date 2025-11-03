@@ -26,6 +26,7 @@ function App() {
     window.addEventListener('resize', chk)
     return () => window.removeEventListener('resize', chk)
   }, [])
+  const mapHeightClass = isMobile ? 'h-[55vh]' : 'h-[90vh]'
   
   const {
     selectedMap,
@@ -571,7 +572,7 @@ function App() {
                 {getMapById(selectedMap)?.name} • {territories.length} bölge
               </h2>
               
-              <div className="relative h-[90vh]">
+              <div className={`relative ${mapHeightClass}`}>
               
               {mapDefinition ? (
                 territories.length > 0 ? (
@@ -676,60 +677,94 @@ function App() {
                     </div>
               )}
 
-              {/* Mobile floating actions - do not block map taps */}
+              {/* Mobile floating actions (top overlay) - do not block map taps */}
               {isMobile && (
-                <div className="pointer-events-none absolute inset-x-0 bottom-3 flex justify-center md:hidden">
+                <div className="pointer-events-none absolute inset-x-0 top-2 flex justify-center md:hidden">
+                  {/* Attack phase */}
                   {phase === 'attack' && attackFrom && attackTo && !lastBattleResult && (
                     <div className="pointer-events-auto bg-slate-900/70 backdrop-blur border border-slate-700/60 rounded-xl shadow-xl flex gap-2 px-3 py-2">
-                      <button
-                        onClick={() => {
-                          const fromState = getTerritoryState(attackFrom)
-                          const toState = getTerritoryState(attackTo)
-                          if (fromState && toState) {
-                            const attackerDice = Math.min(3, fromState.armies - 1)
-                            const defenderDice = Math.min(2, toState.armies)
-                            executeAttack(attackerDice, defenderDice)
-                          }
-                        }}
-                        className="px-3 py-2 text-xs bg-red-500 text-white rounded-lg shadow hover:bg-red-600"
-                      >
-                        ⚔️ Attack
-                      </button>
-                      <button
-                        onClick={() => {
-                          let loopGuard = 0
-                          let totalA = 0
-                          let totalD = 0
-                          let conquered = false
-                          while (loopGuard < 200) {
-                            loopGuard++
-                            const fromStateNow = getTerritoryState(attackFrom!)
-                            const toStateNow = getTerritoryState(attackTo!)
-                            if (!fromStateNow || !toStateNow) break
-                            if (fromStateNow.armies <= 1) break
-                            const attackerDice = Math.min(3, fromStateNow.armies - 1)
-                            const defenderDice = Math.min(2, toStateNow.armies)
-                            executeAttack(attackerDice, defenderDice)
-                            const lr = useGameStore.getState().lastBattleResult
-                            if (lr) {
-                              totalA += lr.attackerLosses || 0
-                              totalD += lr.defenderLosses || 0
-                              if (lr.conquered) { conquered = true; break }
-                            } else {
-                              break
+                      {config.instantMode ? (
+                        <button
+                          onClick={() => {
+                            let loopGuard = 0
+                            let totalA = 0
+                            let totalD = 0
+                            let conquered = false
+                            while (loopGuard < 200) {
+                              loopGuard++
+                              const fs = getTerritoryState(attackFrom!)
+                              const ts = getTerritoryState(attackTo!)
+                              if (!fs || !ts) break
+                              if (fs.armies <= 1) break
+                              const a = Math.min(3, fs.armies - 1)
+                              const d = Math.min(2, ts.armies)
+                              executeAttack(a, d)
+                              const lr = useGameStore.getState().lastBattleResult
+                              if (lr) { totalA += lr.attackerLosses||0; totalD += lr.defenderLosses||0; if (lr.conquered) { conquered = true; break } } else { break }
                             }
-                          }
-                          if (!conquered) {
-                            useGameStore.setState({ lastBattleResult: { attackerLosses: totalA, defenderLosses: totalD, conquered: false } as any })
-                          }
-                        }}
-                        className="px-3 py-2 text-xs bg-amber-500 text-white rounded-lg shadow hover:bg-amber-600"
-                      >
-                        ⚡ All‑in
-                      </button>
+                            if (!conquered) { useGameStore.setState({ lastBattleResult: { attackerLosses: totalA, defenderLosses: totalD, conquered: false } as any }) }
+                          }}
+                          className="px-3 py-2 text-xs bg-amber-500 text-white rounded-lg shadow hover:bg-amber-600"
+                        >
+                          ⚡ Attack
+                        </button>
+                      ) : (
+                        <>
+                          <button
+                            onClick={() => {
+                              const fs = getTerritoryState(attackFrom!)
+                              const ts = getTerritoryState(attackTo!)
+                              if (!fs || !ts) return
+                              executeAttack(Math.min(3, fs.armies - 1), Math.min(2, ts.armies))
+                            }}
+                            className="px-3 py-2 text-xs bg-red-500 text-white rounded-lg shadow hover:bg-red-600"
+                          >
+                            ⚔️ Attack
+                          </button>
+                          <button
+                            onClick={() => {
+                              let loopGuard = 0, totalA = 0, totalD = 0, conquered = false
+                              while (loopGuard < 200) {
+                                loopGuard++
+                                const fs = getTerritoryState(attackFrom!)
+                                const ts = getTerritoryState(attackTo!)
+                                if (!fs || !ts) break
+                                if (fs.armies <= 1) break
+                                executeAttack(Math.min(3, fs.armies - 1), Math.min(2, ts.armies))
+                                const lr = useGameStore.getState().lastBattleResult
+                                if (lr) { totalA += lr.attackerLosses||0; totalD += lr.defenderLosses||0; if (lr.conquered) { conquered = true; break } } else { break }
+                              }
+                              if (!conquered) { useGameStore.setState({ lastBattleResult: { attackerLosses: totalA, defenderLosses: totalD, conquered: false } as any }) }
+                            }}
+                            className="px-3 py-2 text-xs bg-amber-500 text-white rounded-lg shadow hover:bg-amber-600"
+                          >
+                            ⚡ All‑in
+                          </button>
+                        </>
+                      )}
+                      <button onClick={endAttackPhase} className="px-3 py-2 text-xs bg-slate-600 text-white rounded-lg shadow hover:bg-slate-700">End Attack</button>
                     </div>
                   )}
+                  {/* Conquest move */}
+                  {phase === 'attack' && lastBattleResult?.conquered && attackFrom && (
+                    <div className="pointer-events-auto bg-slate-900/70 backdrop-blur border border-slate-700/60 rounded-xl shadow-xl flex gap-2 px-3 py-2">
+                      <button onClick={() => { conquestMove(1); setConquestArmies(1) }} className="px-3 py-2 text-xs bg-emerald-600 text-white rounded-lg shadow hover:bg-emerald-700">Move 1</button>
+                      <button onClick={() => { const maxMove = Math.max(1, (getTerritoryState(attackFrom!)?.armies || 1) - 1); conquestMove(maxMove); setConquestArmies(1) }} className="px-3 py-2 text-xs bg-emerald-700 text-white rounded-lg shadow hover:bg-emerald-800">Move All</button>
                     </div>
+                  )}
+                  {/* Fortify */}
+                  {phase === 'fortify' && (
+                    <div className="pointer-events-auto bg-slate-900/70 backdrop-blur border border-slate-700/60 rounded-xl shadow-xl flex gap-2 px-3 py-2">
+                      {fortifyFrom && fortifyTo && (
+                        <>
+                          <button onClick={() => { executeFortify(fortifyArmies); setFortifyArmies(1) }} className="px-3 py-2 text-xs bg-blue-500 text-white rounded-lg shadow hover:bg-blue-600">Fortify</button>
+                          <button onClick={() => { const maxMove = Math.max(1, (getTerritoryState(fortifyFrom!)?.armies || 1) - 1); executeFortify(maxMove); setFortifyArmies(1) }} className="px-3 py-2 text-xs bg-blue-700 text-white rounded-lg shadow hover:bg-blue-800">Fortify All</button>
+                        </>
+                      )}
+                      <button onClick={() => executeFortify(0)} className="px-3 py-2 text-xs bg-slate-600 text-white rounded-lg shadow hover:bg-slate-700">End Turn</button>
+                    </div>
+                  )}
+                </div>
               )}
                         </div>
             </div>
@@ -886,58 +921,93 @@ function App() {
                           Savunan: {Math.min(2, getTerritoryState(attackTo)?.armies || 1)} zar
                         </div>
                       </div>
-                      <div className="grid grid-cols-2 gap-2">
-                        <button
-                          onClick={() => {
-                            const fromState = getTerritoryState(attackFrom)
-                            const toState = getTerritoryState(attackTo)
-                            if (fromState && toState) {
-                              const attackerDice = Math.min(3, fromState.armies - 1)
-                              const defenderDice = Math.min(2, toState.armies)
-                              executeAttack(attackerDice, defenderDice)
-                            }
-                          }}
-                          className="w-full py-3 bg-red-500 text-white font-bold rounded-lg hover:bg-red-600"
-                        >
-                          ⚔️ {tr('attack')}
-                        </button>
-                        <button
-                          onClick={() => {
-                            // All-in attack loop on UI (even if normal speed)
-                            let loopGuard = 0
-                            let totalA = 0
-                            let totalD = 0
-                            let conquered = false
-                            while (loopGuard < 200) {
-                              loopGuard++
-                              const fromStateNow = getTerritoryState(attackFrom!)
-                              const toStateNow = getTerritoryState(attackTo!)
-                              if (!fromStateNow || !toStateNow) break
-                              if (fromStateNow.armies <= 1) break
-                              const attackerDice = Math.min(3, fromStateNow.armies - 1)
-                              const defenderDice = Math.min(2, toStateNow.armies)
-                              executeAttack(attackerDice, defenderDice)
-                              const lr = useGameStore.getState().lastBattleResult
-                              if (lr) {
-                                totalA += lr.attackerLosses || 0
-                                totalD += lr.defenderLosses || 0
-                                if (lr.conquered) { conquered = true; break }
-                              } else {
-                                break
+                      {config.instantMode ? (
+                        <div>
+                          <button
+                            onClick={() => {
+                              let loopGuard = 0
+                              let totalA = 0
+                              let totalD = 0
+                              let conquered = false
+                              while (loopGuard < 200) {
+                                loopGuard++
+                                const fromStateNow = getTerritoryState(attackFrom!)
+                                const toStateNow = getTerritoryState(attackTo!)
+                                if (!fromStateNow || !toStateNow) break
+                                if (fromStateNow.armies <= 1) break
+                                const attackerDice = Math.min(3, fromStateNow.armies - 1)
+                                const defenderDice = Math.min(2, toStateNow.armies)
+                                executeAttack(attackerDice, defenderDice)
+                                const lr = useGameStore.getState().lastBattleResult
+                                if (lr) {
+                                  totalA += lr.attackerLosses || 0
+                                  totalD += lr.defenderLosses || 0
+                                  if (lr.conquered) { conquered = true; break }
+                                } else {
+                                  break
+                                }
                               }
-                            }
-                            // Show aggregated last battle result when not conquered
-                            if (!conquered) {
-                              useGameStore.setState({ lastBattleResult: { attackerLosses: totalA, defenderLosses: totalD, conquered: false } as any })
-                            }
-                          }}
-                          className="w-full py-3 bg-amber-500 text-white font-bold rounded-lg hover:bg-amber-600"
-                        >
-                          ⚡ All‑in
-                    </button>
-                      </div>
-                  </div>
-                )}
+                              if (!conquered) {
+                                useGameStore.setState({ lastBattleResult: { attackerLosses: totalA, defenderLosses: totalD, conquered: false } as any })
+                              }
+                            }}
+                            className="w-full py-3 bg-amber-500 text-white font-bold rounded-lg hover:bg-amber-600"
+                          >
+                            ⚡ Attack (Instant)
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="grid grid-cols-2 gap-2">
+                          <button
+                            onClick={() => {
+                              const fromState = getTerritoryState(attackFrom)
+                              const toState = getTerritoryState(attackTo)
+                              if (fromState && toState) {
+                                const attackerDice = Math.min(3, fromState.armies - 1)
+                                const defenderDice = Math.min(2, toState.armies)
+                                executeAttack(attackerDice, defenderDice)
+                              }
+                            }}
+                            className="w-full py-3 bg-red-500 text-white font-bold rounded-lg hover:bg-red-600"
+                          >
+                            ⚔️ {tr('attack')}
+                          </button>
+                          <button
+                            onClick={() => {
+                              let loopGuard = 0
+                              let totalA = 0
+                              let totalD = 0
+                              let conquered = false
+                              while (loopGuard < 200) {
+                                loopGuard++
+                                const fromStateNow = getTerritoryState(attackFrom!)
+                                const toStateNow = getTerritoryState(attackTo!)
+                                if (!fromStateNow || !toStateNow) break
+                                if (fromStateNow.armies <= 1) break
+                                const attackerDice = Math.min(3, fromStateNow.armies - 1)
+                                const defenderDice = Math.min(2, toStateNow.armies)
+                                executeAttack(attackerDice, defenderDice)
+                                const lr = useGameStore.getState().lastBattleResult
+                                if (lr) {
+                                  totalA += lr.attackerLosses || 0
+                                  totalD += lr.defenderLosses || 0
+                                  if (lr.conquered) { conquered = true; break }
+                                } else {
+                                  break
+                                }
+                              }
+                              if (!conquered) {
+                                useGameStore.setState({ lastBattleResult: { attackerLosses: totalA, defenderLosses: totalD, conquered: false } as any })
+                              }
+                            }}
+                            className="w-full py-3 bg-amber-500 text-white font-bold rounded-lg hover:bg-amber-600"
+                          >
+                            ⚡ All‑in
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 
                   {lastBattleResult && !lastBattleResult.conquered && (
                     <div className="p-3 bg-slate-700/50 rounded-lg text-center space-y-2">
