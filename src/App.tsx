@@ -1,5 +1,5 @@
 import "./App.css"
-import { useState, useMemo, useEffect, useRef } from "react"
+import { useState, useMemo, useEffect, useRef, type CSSProperties } from "react"
 import { useGameStore } from "./store/game"
 import { loadConfig, saveConfig, type GameConfig } from "./config/game"
 import { getMapById } from "./data/territories"
@@ -48,11 +48,18 @@ function App() {
     playAITurn,
     setSettings,
     redeemCards,
+    canRedeem,
     placementStage,
     placementReserves
   } = useGameStore()
   
   const currentPlayer = players[currentPlayerIndex]
+  const turnColor = currentPlayer?.color || '#10B981'
+  const turnCardStyle: CSSProperties = {
+    backgroundColor: `${turnColor}33`,
+    borderColor: `${turnColor}66`,
+    boxShadow: `0 8px 30px ${turnColor}22`
+  }
   
   // Auto-play AI turns
   useEffect(() => {
@@ -187,7 +194,40 @@ function App() {
   }, [])
   
   const tr = t(config.language)
-
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (!currentPlayer) return
+      if (e.key.toLowerCase() === 'r') {
+        // redeem if allowed
+        try { (useGameStore.getState() as any).canRedeem && (useGameStore.getState() as any).canRedeem() && redeemCards() } catch {}
+      }
+      if (e.key.toLowerCase() === 'e' && phase === 'attack') {
+        endAttackPhase()
+      }
+      if (e.key.toLowerCase() === 'f' && phase === 'fortify' && fortifyFrom && fortifyTo) {
+        const maxMove = Math.max(1, (getTerritoryState(fortifyFrom)?.armies || 1) - 1)
+        executeFortify(maxMove)
+      }
+      if (e.key.toLowerCase() === 'a' && attackFrom && attackTo && !lastBattleResult) {
+        const fromState = getTerritoryState(attackFrom)
+        const toState = getTerritoryState(attackTo)
+        if (fromState && toState) {
+          const attackerDice = Math.min(3, fromState.armies - 1)
+          const defenderDice = Math.min(2, toState.armies)
+          executeAttack(attackerDice, defenderDice)
+        }
+      }
+      if (e.key.toLowerCase() === 'i' && attackFrom && attackTo && !lastBattleResult) {
+        // trigger the same all-in handler as button
+        const click = document.querySelector('button:contains("All‑in")') as HTMLButtonElement | null
+        if (click) click.click()
+      }
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [currentPlayer, phase, attackFrom, attackTo, lastBattleResult, fortifyFrom, fortifyTo])
+  
   const suggestedTerritoryId = useMemo(() => {
     if (!mapDefinition || !currentPlayer) return undefined
     if (phase === 'placement' && placementStage === 'claim') {
@@ -397,28 +437,6 @@ function App() {
                   </select>
                 </div>
                       <div>
-                  <div className="text-xs text-slate-400 mb-1">{tr('speed')}</div>
-                        <select
-                    value={config.battleSpeed || 'normal'}
-                    onChange={(e)=> applySetting('battleSpeed', e.target.value as any)}
-                    className="w-full rounded-md bg-slate-800/70 border border-slate-600/50 px-3 py-2 text-white"
-                  >
-                    <option value="instant">{tr('instant')}</option>
-                    <option value="normal">{tr('normal')}</option>
-                        </select>
-                      </div>
-                      <div>
-                  <div className="text-xs text-slate-400 mb-1">{tr('model')}</div>
-                        <select
-                    value={config.battleModel || 'realistic'}
-                    onChange={(e)=> applySetting('battleModel', e.target.value as any)}
-                    className="w-full rounded-md bg-slate-800/70 border border-slate-600/50 px-3 py-2 text-white"
-                  >
-                    <option value="realistic">{tr('realistic')}</option>
-                    <option value="random">{tr('random')}</option>
-                        </select>
-                      </div>
-                      <div>
                   <div className="text-xs text-slate-400 mb-1">{tr('resources')}</div>
                         <select
                     value={config.resourceLevel || 'medium'}
@@ -431,17 +449,22 @@ function App() {
                         </select>
                       </div>
                       <div>
-                  <div className="text-xs text-slate-400 mb-1">Saldırı Çözümü</div>
-                        <select
-                    value={config.attackMode || 'single'}
-                    onChange={(e)=> applySetting('attackMode', e.target.value as any)}
-                    className="w-full rounded-md bg-slate-800/70 border border-slate-600/50 px-3 py-2 text-white"
-                  >
-                    <option value="single">Tek vuruş</option>
-                    <option value="all-in">Sonuna kadar</option>
-                        </select>
-                </div>
-              </div>
+                  <div className="text-xs text-slate-400 mb-1">Instant Mode</div>
+                  <label className="inline-flex items-center gap-2 text-sm text-slate-300">
+                    <input
+                      type="checkbox"
+                      checked={!!config.instantMode}
+                      onChange={(e)=> {
+                        const next = { ...config, instantMode: e.target.checked }
+                        setConfig(next)
+                        saveConfig(next)
+                        setSettings({ instantMode: e.target.checked })
+                      }}
+                    />
+                    <span>{config.language==='tr' ? 'Saldırı anında sonuçlansın' : 'Resolve battles instantly'}</span>
+                  </label>
+                      </div>
+                      </div>
               <div className="text-xs text-slate-500 mt-2">
                 {config.language==='tr' ? 'Not: Yerleşim modu yeni oyunda etkili olur.' : 'Note: Placement mode applies on new game.'}
               </div>
@@ -514,6 +537,9 @@ function App() {
                   <div className="text-sm text-slate-400">{tr('currentPlayer')}</div>
                   <div className="text-xl font-bold text-white flex items-center gap-2">
                     {currentPlayer.name}
+                    <span className="text-[10px] px-2 py-1 rounded-full" style={{ backgroundColor: (currentPlayer.color || '#64748b') + '33', color: currentPlayer.color }}>
+                      {(currentPlayer.cards?.length || 0)} cards
+                    </span>
                     {!currentPlayer.isHuman && (
                       <span className="text-xs px-2 py-1 bg-purple-500/20 text-purple-300 rounded">
                         🤖 AI
@@ -674,14 +700,14 @@ function App() {
                           {territories.filter(t => t.ownerId === -1).length}
                         </div>
                       </div>
-                      <div className="text-center p-4 bg-emerald-500/20 border border-emerald-500/40 rounded-lg">
-                        <div className="text-xs text-emerald-300">Sıradaki</div>
+                      <div className="text-center p-4 rounded-lg border" style={turnCardStyle}>
+                        <div className="text-xs" style={{ color: turnColor }}>Sıradaki</div>
                         <div className="text-2xl font-bold text-white">{currentPlayer?.name}</div>
                       </div>
                     </div>
                   ) : (
-                    <div className="text-center p-4 bg-emerald-500/20 border border-emerald-500/50 rounded-lg">
-                      <div className="text-sm text-emerald-300">{tr('armiesToPlace')}</div>
+                    <div className="text-center p-4 rounded-lg border" style={turnCardStyle}>
+                      <div className="text-sm" style={{ color: turnColor }}>{tr('armiesToPlace')}</div>
                       <div className="text-3xl font-bold text-white">{draftArmies}</div>
                     </div>
                   )}
@@ -733,8 +759,8 @@ function App() {
 
               {phase === 'draft' && (
                 <div className="space-y-3">
-                  <div className="text-center p-4 bg-emerald-500/20 border border-emerald-500/50 rounded-lg">
-                    <div className="text-sm text-emerald-300">{tr('armiesToPlace')}</div>
+                  <div className="text-center p-4 rounded-lg border" style={turnCardStyle}>
+                    <div className="text-sm" style={{ color: turnColor }}>{tr('armiesToPlace')}</div>
                     <div className="text-3xl font-bold text-white">{draftArmies}</div>
                       </div>
                   <div className="p-3 bg-slate-700/30 rounded-lg">
@@ -816,17 +842,30 @@ function App() {
                           onClick={() => {
                             // All-in attack loop on UI (even if normal speed)
                             let loopGuard = 0
+                            let totalA = 0
+                            let totalD = 0
+                            let conquered = false
                             while (loopGuard < 200) {
                               loopGuard++
-                              const fromState = getTerritoryState(attackFrom!)
-                              const toState = getTerritoryState(attackTo!)
-                              if (!fromState || !toState) break
-                              if (fromState.armies <= 1) break
-                              const attackerDice = Math.min(3, fromState.armies - 1)
-                              const defenderDice = Math.min(2, toState.armies)
+                              const fromStateNow = getTerritoryState(attackFrom!)
+                              const toStateNow = getTerritoryState(attackTo!)
+                              if (!fromStateNow || !toStateNow) break
+                              if (fromStateNow.armies <= 1) break
+                              const attackerDice = Math.min(3, fromStateNow.armies - 1)
+                              const defenderDice = Math.min(2, toStateNow.armies)
                               executeAttack(attackerDice, defenderDice)
                               const lr = useGameStore.getState().lastBattleResult
-                              if (lr?.conquered) break
+                              if (lr) {
+                                totalA += lr.attackerLosses || 0
+                                totalD += lr.defenderLosses || 0
+                                if (lr.conquered) { conquered = true; break }
+                              } else {
+                                break
+                              }
+                            }
+                            // Show aggregated last battle result when not conquered
+                            if (!conquered) {
+                              useGameStore.setState({ lastBattleResult: { attackerLosses: totalA, defenderLosses: totalD, conquered: false } as any })
                             }
                           }}
                           className="w-full py-3 bg-amber-500 text-white font-bold rounded-lg hover:bg-amber-600"
@@ -980,15 +1019,28 @@ function App() {
                       <div className="text-xs text-slate-400">
                         Kaynakta {(getTerritoryState(fortifyFrom)?.armies || 1) - fortifyArmies} asker kalacak
             </div>
+                      <div className="grid grid-cols-2 gap-2">
           <button
-                      onClick={() => {
-                          executeFortify(fortifyArmies)
-                          setFortifyArmies(1)
-                        }}
-                        className="w-full py-3 bg-blue-500 text-white font-bold rounded-lg hover:bg-blue-600"
-                      >
-                        ✓ {tr('fortify')}
-                    </button>
+                          onClick={() => {
+                            executeFortify(fortifyArmies)
+                            setFortifyArmies(1)
+                          }}
+                          className="w-full py-3 bg-blue-500 text-white font-bold rounded-lg hover:bg-blue-600"
+                        >
+                          ✓ {tr('fortify')}
+                        </button>
+                        <button
+                          onClick={() => {
+                            const maxMove = Math.max(1, (getTerritoryState(fortifyFrom!)?.armies || 1) - 1)
+                            setFortifyArmies(maxMove)
+                            executeFortify(maxMove)
+                            setFortifyArmies(1)
+                          }}
+                          className="w-full py-3 bg-blue-700 text-white font-bold rounded-lg hover:bg-blue-800"
+                        >
+                          ➤ Fortify All
+                        </button>
+                    </div>
                   </div>
                 )}
                   
@@ -1039,26 +1091,24 @@ function App() {
                       <span className="text-slate-400 text-xs">
                         {config.language === 'tr' ? 'Kart yok' : 'No cards'}
                       </span>
-                    )}
-                  </div>
-                  <button
-                    disabled={!currentPlayer.cards || currentPlayer.cards.length < 3}
+        )}
+      </div>
+              <button
+                    disabled={!canRedeem()}
                     onClick={() => redeemCards()}
                     className={`px-3 py-2 rounded text-sm font-semibold ${
-                      currentPlayer.cards && currentPlayer.cards.length >= 3
+                      canRedeem()
                         ? 'bg-amber-500 hover:bg-amber-600 text-white'
                         : 'bg-slate-700 text-slate-400 cursor-not-allowed'
                     }`}
                   >
-                    {currentPlayer.cards && currentPlayer.cards.length >= 3
-                      ? tr('redeem3')
-                      : tr('need3')}
-                  </button>
-                </div>
+                    {canRedeem() ? tr('redeem3') : tr('need3')}
+              </button>
+      </div>
               ) : (
                 <div className="text-xs text-slate-400">
                   {config.language === 'tr' ? 'Oyuncu yok' : 'No player'}
-                </div>
+              </div>
               )}
             </div>
 

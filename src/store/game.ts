@@ -26,10 +26,11 @@ export interface TerritoryState {
 
 export interface GameSettings {
   placementMode: 'random' | 'sequential'
-  battleSpeed: 'instant' | 'normal'
-  battleModel: 'realistic' | 'random'
+  battleSpeed?: 'instant' | 'normal'
+  battleModel?: 'realistic' | 'random'
   resourceLevel: 'low' | 'medium' | 'high'
   attackMode: 'single' | 'all-in'
+  instantMode?: boolean
 }
 
 export interface GameState {
@@ -67,11 +68,14 @@ export interface GameState {
   // Cards and bonuses
   cardsDeck: TerritoryCard[]
   conquestMadeThisTurn?: boolean
+  // Flags
+  draftHasPlaced?: boolean
   
   // Settings
   settings: GameSettings
   setSettings: (s: Partial<GameSettings>) => void
   redeemCards: () => { success: boolean }
+  canRedeem: () => boolean
   
   // History
   history: HistoryEntry[]
@@ -139,15 +143,19 @@ const getInitialState = (): GameState => ({
         history: [],
   cardsDeck: [],
   conquestMadeThisTurn: false,
+  // Flags
+  draftHasPlaced: false,
   settings: {
     placementMode: 'random',
     battleSpeed: 'normal',
     battleModel: 'realistic',
     resourceLevel: 'medium',
-    attackMode: 'single'
+    attackMode: 'single',
+    instantMode: false
   },
   setSettings: () => {},
   redeemCards: () => ({ success: false }),
+  canRedeem: () => false,
   setMap: () => {},
   initGame: () => {},
   calculateDraftArmies: () => 3,
@@ -181,14 +189,80 @@ export const useGameStore = create<GameState>((set, get) => ({
     const state = get()
     const currentPlayer = state.players[state.currentPlayerIndex]
     if (!currentPlayer) return { success: false }
+    // Only during draft and before placing armies this turn
+    if (state.phase !== 'draft' || state.draftHasPlaced) return { success: false }
     if ((currentPlayer.cards?.length || 0) < 3) return { success: false }
-    
+
+    // Evaluate best set: one-of-each (10) > three artillery (8) > three cavalry (6) > three infantry (4)
+    const types = (currentPlayer.cards || []).map(c => c.type)
+    const count = (t: TerritoryCard['type']) => types.filter(x => x === t).length
+    const wilds = types.filter(t => t === 'wild').length
+
+    const removeSet = (needed: Record<string, number>) => {
+      const toRemoveIdx: number[] = []
+      const need: Record<string, number> = { ...needed }
+      currentPlayer.cards.forEach((c, i) => {
+        if (need[c.type] && need[c.type]! > 0) {
+          need[c.type]! -= 1
+          toRemoveIdx.push(i)
+        }
+      })
+      // use wilds
+      let wildLeft = wilds - toRemoveIdx.filter(i => currentPlayer.cards[i].type === 'wild').length
+      Object.keys(need).forEach(k => {
+        while (need[k]! > 0 && wildLeft > 0) {
+          // remove a wild index not already chosen
+          const wi = currentPlayer.cards.findIndex((c, idx) => c.type === 'wild' && !toRemoveIdx.includes(idx))
+          if (wi >= 0) {
+            toRemoveIdx.push(wi)
+            need[k]! -= 1
+            wildLeft -= 1
+          } else {
+            wildLeft = 0
+          }
+        }
+      })
+      const ok = Object.values(need).every(v => (v || 0) <= 0)
+      if (!ok) return null
+      // remove highest indices first
+      toRemoveIdx.sort((a,b)=> b-a)
+      const newCards = [...currentPlayer.cards]
+      toRemoveIdx.forEach(i => newCards.splice(i,1))
+      return newCards
+    }
+
+    let award = 0
+    let newCards: TerritoryCard[] | null = null
+    // one of each
+    if ((count('infantry') + wilds) >= 1 && (count('cavalry') + wilds) >= 1 && (count('artillery') + wilds) >= 1) {
+      newCards = removeSet({ infantry: 1, cavalry: 1, artillery: 1 })
+      award = 10
+    } else if ((count('artillery') + wilds) >= 3) {
+      newCards = removeSet({ artillery: 3 })
+      award = 8
+    } else if ((count('cavalry') + wilds) >= 3) {
+      newCards = removeSet({ cavalry: 3 })
+      award = 6
+    } else if ((count('infantry') + wilds) >= 3) {
+      newCards = removeSet({ infantry: 3 })
+      award = 4
+    }
+
+    if (!newCards) return { success: false }
+
     set((s) => ({
-      players: s.players.map(p => p.id === currentPlayer.id ? { ...p, cards: p.cards.slice(3) } : p),
-      draftArmies: (s.draftArmies || 0) + 6,
-      history: [...s.history, { turn: s.turn, playerId: currentPlayer.id, action: 'draft', result: 'Redeemed 3 cards for 6 armies' }]
+      players: s.players.map(p => p.id === currentPlayer.id ? { ...p, cards: newCards! } : p),
+      draftArmies: (s.draftArmies || 0) + award,
+      history: [...s.history, { turn: s.turn, playerId: currentPlayer.id, action: 'draft', result: `Redeemed cards for ${award} armies` }]
     }))
-        return { success: true }
+    return { success: true }
+  },
+  canRedeem: () => {
+    const s = get()
+    const p = s.players[s.currentPlayerIndex]
+    if (!p) return false
+    if (s.phase !== 'draft' || s.draftHasPlaced) return false
+    return (p.cards?.length || 0) >= 3
   },
   
   setMap: (mapId) => {
@@ -252,7 +326,8 @@ export const useGameStore = create<GameState>((set, get) => ({
         history: [{ turn: 0, playerId: -1, action: 'draft', result: 'Placement claim started' }],
         cardsDeck: [],
         conquestMadeThisTurn: false,
-        placementReserves: players.map(()=> 6)
+        placementReserves: players.map(()=> 6),
+        draftHasPlaced: false
       })
       return
     }
@@ -273,8 +348,21 @@ export const useGameStore = create<GameState>((set, get) => ({
       cardsDeck: [],
       conquestMadeThisTurn: false,
       placementReserves: undefined,
-      placementStage: undefined
+      placementStage: undefined,
+      draftHasPlaced: false
     })
+    // Enforce forced redemption at draft start if player has 5+ cards
+    setTimeout(() => {
+      const p = get().players[get().currentPlayerIndex]
+      if (p && (p.cards?.length || 0) >= 5) {
+        let safety = 0
+        while ((get().players[get().currentPlayerIndex].cards?.length || 0) >= 5 && safety < 5) {
+          const res = get().redeemCards()
+          if (!res.success) break
+          safety++
+        }
+      }
+    }, 0)
   },
   
   calculateDraftArmies: () => {
@@ -402,27 +490,32 @@ export const useGameStore = create<GameState>((set, get) => ({
     // Draft placement (normal turn)
     if (state.phase !== 'draft') return false
     if (territory.ownerId !== currentPlayer.id) return false
+    // Forced redemption: if player holds 5+ cards at start of draft (before placing), auto-redeem
+    if (!state.draftHasPlaced && (currentPlayer.cards?.length || 0) >= 5) {
+      let safety = 0
+      while ((get().players[get().currentPlayerIndex].cards?.length || 0) >= 5 && safety < 5) {
+        const res = get().redeemCards()
+        if (!res.success) break
+        safety++
+      }
+      // If still 5+, block placement until a valid set exists
+      const pNow = get().players[get().currentPlayerIndex]
+      if ((pNow.cards?.length || 0) >= 5) return false
+    }
     if (state.draftArmies <= 0) return false
-    
     set(s => ({
-      territories: s.territories.map(t =>
-        t.id === territoryId ? { ...t, armies: t.armies + 1 } : t
-      ),
+      territories: s.territories.map(t => t.id === territoryId ? { ...t, armies: t.armies + 1 } : t),
       draftArmies: s.draftArmies - 1,
-      history: [...s.history, {
-        turn: s.turn,
-        playerId: currentPlayer.id,
-        action: "draft",
-        to: territoryId,
-        armies: 1
-      }]
+      draftHasPlaced: true,
+      history: [...s.history, { turn: s.turn, playerId: currentPlayer.id, action: 'draft', to: territoryId, armies: 1 }]
     }))
     
     // If all draft armies placed, move phase
     const after = get()
     if (after.draftArmies === 0) {
       if (after.turn === 1) {
-        set({ phase: 'fortify' }) // disable attack in first round
+        // Skip fortify on first round: immediately end turn
+        setTimeout(() => get().executeFortify(0), 50)
       } else {
         set({ phase: 'attack' })
       }
@@ -464,38 +557,26 @@ export const useGameStore = create<GameState>((set, get) => ({
     const state = get()
     if (!state.attackFrom || !state.attackTo) return
     
-    const fromState = state.territories.find(t => t.id === state.attackFrom)
-    const toState = state.territories.find(t => t.id === state.attackTo)
-    
-    if (!fromState || !toState) return
-    
-    const resolveOnce = () => {
-      // Dice rolls
+    const singleRound = () => {
+      const fromState = get().territories.find(t => t.id === get().attackFrom)
+      const toState = get().territories.find(t => t.id === get().attackTo)
+      if (!fromState || !toState) return { conquered: false }
       const rng = createRng(Date.now().toString())
       const aDice = Math.max(1, Math.min(3, attackerDice))
       const dDice = Math.max(1, Math.min(2, defenderDice))
       const attackerRolls = Array.from({ length: aDice }, () => Math.floor(rng() * 6) + 1).sort((a, b) => b - a)
       const defenderRolls = Array.from({ length: dDice }, () => Math.floor(rng() * 6) + 1).sort((a, b) => b - a)
-      
       let attackerLosses = 0
       let defenderLosses = 0
       const comparisons = Math.min(attackerRolls.length, defenderRolls.length)
       for (let i = 0; i < comparisons; i++) {
         const ar = attackerRolls[i]
         const dr = defenderRolls[i]
-        if (get().settings.battleModel === 'random') {
-          const flip = rng()
-          if (flip < 0.52) defenderLosses++
-          else attackerLosses++
-        } else {
-          if (ar > dr) defenderLosses++
-          else attackerLosses++
-        }
+        if (ar > dr) defenderLosses++
+        else attackerLosses++
       }
-      
       const newDefenderArmies = toState.armies - defenderLosses
       const conquered = newDefenderArmies <= 0
-      
       set(s => ({
         territories: s.territories.map(t => {
           if (t.id === s.attackFrom) {
@@ -507,39 +588,28 @@ export const useGameStore = create<GameState>((set, get) => ({
           return t
         }),
         lastBattleResult: { attackerLosses, defenderLosses, conquered, attackerRolls, defenderRolls },
-        history: [...s.history, {
-          turn: s.turn,
-          playerId: s.players[s.currentPlayerIndex].id,
-          action: conquered ? "conquered" : "attack",
-          from: s.attackFrom!,
-          to: s.attackTo!,
-          result: `Lost ${attackerLosses}, enemy lost ${defenderLosses}`
-        }],
+        history: [...s.history, { turn: s.turn, playerId: s.players[s.currentPlayerIndex].id, action: conquered ? 'conquered' : 'attack', from: s.attackFrom!, to: s.attackTo!, result: `Lost ${attackerLosses}, enemy lost ${defenderLosses}` }],
         conquestMadeThisTurn: s.conquestMadeThisTurn || conquered
       }))
-      
-      return conquered
+      return { conquered }
     }
-    
-    if (get().settings.battleSpeed === 'instant' || get().settings.attackMode === 'all-in') {
-      // Loop until attacker can't attack or defender conquered
-      let continueBattle = true
+
+    if (get().settings.instantMode) {
+      // Repeat rounds until end of battle
       let safety = 0
-      while (continueBattle && safety < 500) {
-        safety++
+      while (safety < 200) {
         const fromNow = get().territories.find(t => t.id === get().attackFrom)
         const toNow = get().territories.find(t => t.id === get().attackTo)
         if (!fromNow || !toNow) break
         if (fromNow.armies <= 1) break
-        const attackerDiceNow = Math.min(3, fromNow.armies - 1)
-        const defenderDiceNow = Math.min(2, toNow.armies)
-        const defenderAlive = !resolveOnce()
-        if (!defenderAlive) break
-        if (attackerDiceNow <= 0 || defenderDiceNow <= 0) break
-          }
-        } else {
-      resolveOnce()
+        const result = singleRound()
+        if (result.conquered) break
+        safety++
+      }
+      return
     }
+
+    singleRound()
   },
   
   conquestMove: (armies: number) => {
@@ -547,9 +617,11 @@ export const useGameStore = create<GameState>((set, get) => ({
     if (!state.attackFrom || !state.attackTo || !state.lastBattleResult?.conquered) return
     
     const fromState = state.territories.find(t => t.id === state.attackFrom)
+    const toBefore = state.territories.find(t => t.id === state.attackTo)
     if (!fromState || armies >= fromState.armies || armies < 1) return
     
     const currentPlayer = state.players[state.currentPlayerIndex]
+    const defeatedPlayerId = toBefore?.ownerId ?? -1
     
     set(s => ({
       territories: s.territories.map(t => {
@@ -566,7 +638,24 @@ export const useGameStore = create<GameState>((set, get) => ({
       lastBattleResult: null
     }))
     
-    // Check if defender is eliminated
+    // Check if defender is eliminated; transfer cards if so
+    const territoriesLeft = get().territories.some(t => t.ownerId === defeatedPlayerId)
+    if (!territoriesLeft && defeatedPlayerId >= 0) {
+      set(s => ({
+        players: s.players.map(p => {
+          if (p.id === currentPlayer.id) {
+            const defeated = s.players.find(pp => pp.id === defeatedPlayerId)
+            const gained = defeated?.cards || []
+            return { ...p, cards: [...(p.cards || []), ...gained] }
+          }
+          if (p.id === defeatedPlayerId) {
+            return { ...p, cards: [] }
+          }
+          return p
+        }),
+        history: [...s.history, { turn: s.turn, playerId: currentPlayer.id, action: 'attack', result: 'Captured all cards from eliminated player' }]
+      }))
+    }
     get().checkWinCondition()
   },
   
@@ -636,7 +725,8 @@ export const useGameStore = create<GameState>((set, get) => ({
         phase: "draft",
         draftArmies: 0,
         fortifyFrom: null,
-        fortifyTo: null
+        fortifyTo: null,
+        draftHasPlaced: false
       })
       
       // Calculate draft armies for next player
@@ -689,13 +779,23 @@ export const useGameStore = create<GameState>((set, get) => ({
       currentPlayerIndex: nextPlayerIndex,
       turn: newTurn,
       phase: "draft",
-      draftArmies: 0
+      draftArmies: 0,
+      draftHasPlaced: false
     })
     
-    // Calculate draft armies for next player
+    // Calculate draft armies for next player and enforce forced redemption at >=5 cards
     setTimeout(() => {
       set({ draftArmies: get().calculateDraftArmies() })
-      // Auto-play AI turn
+      const p = get().players[get().currentPlayerIndex]
+      // force redeem while 5+ cards
+      if (p && (p.cards?.length || 0) >= 5) {
+        let safety = 0
+        while ((get().players[get().currentPlayerIndex].cards?.length || 0) >= 5 && safety < 5) {
+          const res = get().redeemCards()
+          if (!res.success) break
+          safety++
+        }
+      }
       const nextPlayer = get().players[get().currentPlayerIndex]
       if (nextPlayer && !nextPlayer.isHuman) {
         setTimeout(() => get().playAITurn(), 500)

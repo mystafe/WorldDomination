@@ -4,10 +4,9 @@ export interface GameConfig {
   humanPlayers: number
   language: 'tr' | 'en'
   placementMode?: 'random' | 'sequential'
-  battleSpeed?: 'instant' | 'normal'
-  battleModel?: 'realistic' | 'random'
   resourceLevel?: 'low' | 'medium' | 'high'
   attackMode?: 'single' | 'all-in'
+  instantMode?: boolean
 }
 
 export const defaultConfig: GameConfig = {
@@ -16,10 +15,9 @@ export const defaultConfig: GameConfig = {
   humanPlayers: 1,
   language: 'tr',
   placementMode: 'random',
-  battleSpeed: 'normal',
-  battleModel: 'realistic',
   resourceLevel: 'medium',
-  attackMode: 'single'
+  attackMode: 'single',
+  instantMode: false
 }
 
 const CONFIG_KEY = "risk-game-config"

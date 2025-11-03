@@ -214,7 +214,10 @@ export default function RealMap({ mapId, mapDefinition, territories, players, se
               {isSuggested && (
                 <circle cx={xy[0]} cy={xy[1]} r={radius + 8} fill="none" stroke="#fbbf24" strokeWidth={3} strokeDasharray="4 2" />
               )}
-              <circle cx={xy[0]} cy={xy[1]} r={radius} fill={(owner?.color || '#64748b') + 'AA'} stroke={strokeColor} strokeWidth={strokeWidth} />
+              {selectable && (
+                <circle cx={xy[0]} cy={xy[1]} r={radius + 6} fill="none" stroke={phase === 'attack' ? '#ef4444' : '#60a5fa'} strokeOpacity={0.5} strokeWidth={2} className="animate-pulse" />
+              )}
+              <circle cx={xy[0]} cy={xy[1]} r={radius} fill={(owner?.color || '#64748b') + 'AA'} stroke={strokeColor} strokeWidth={strokeWidth} filter="url(#shadow)" />
               <text x={xy[0]} y={xy[1] - 12} textAnchor="middle" fontSize={nameFont} fontWeight={big ? 700 : 500} fill="#e2e8f0">{t.name}</text>
               <text x={xy[0]} y={xy[1] + 4} textAnchor="middle" fontSize={armyFont} fill="#ffffff">{state?.armies ?? 0}</text>
               <title>{big ? nameBig : nameSmall}</title>
