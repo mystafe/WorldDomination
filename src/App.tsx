@@ -18,6 +18,14 @@ function App() {
   const holdDelayRef = useRef<number>(200)
   const holdCountRef = useRef<number>(0)
   const holdFiredRef = useRef<boolean>(false)
+  const [isMobile, setIsMobile] = useState(false)
+
+  useEffect(() => {
+    const chk = () => setIsMobile(typeof window !== 'undefined' && window.innerWidth < 768)
+    chk()
+    window.addEventListener('resize', chk)
+    return () => window.removeEventListener('resize', chk)
+  }, [])
   
   const {
     selectedMap,
@@ -563,7 +571,7 @@ function App() {
                 {getMapById(selectedMap)?.name} • {territories.length} bölge
               </h2>
               
-              <div className="h-[90vh]">
+              <div className="relative h-[90vh]">
               
               {mapDefinition ? (
                 territories.length > 0 ? (
@@ -667,16 +675,72 @@ function App() {
                   <div className="text-slate-400">No map selected</div>
                     </div>
               )}
+
+              {/* Mobile floating actions - do not block map taps */}
+              {isMobile && (
+                <div className="pointer-events-none absolute inset-x-0 bottom-3 flex justify-center md:hidden">
+                  {phase === 'attack' && attackFrom && attackTo && !lastBattleResult && (
+                    <div className="pointer-events-auto bg-slate-900/70 backdrop-blur border border-slate-700/60 rounded-xl shadow-xl flex gap-2 px-3 py-2">
+                      <button
+                        onClick={() => {
+                          const fromState = getTerritoryState(attackFrom)
+                          const toState = getTerritoryState(attackTo)
+                          if (fromState && toState) {
+                            const attackerDice = Math.min(3, fromState.armies - 1)
+                            const defenderDice = Math.min(2, toState.armies)
+                            executeAttack(attackerDice, defenderDice)
+                          }
+                        }}
+                        className="px-3 py-2 text-xs bg-red-500 text-white rounded-lg shadow hover:bg-red-600"
+                      >
+                        ⚔️ Attack
+                      </button>
+                      <button
+                        onClick={() => {
+                          let loopGuard = 0
+                          let totalA = 0
+                          let totalD = 0
+                          let conquered = false
+                          while (loopGuard < 200) {
+                            loopGuard++
+                            const fromStateNow = getTerritoryState(attackFrom!)
+                            const toStateNow = getTerritoryState(attackTo!)
+                            if (!fromStateNow || !toStateNow) break
+                            if (fromStateNow.armies <= 1) break
+                            const attackerDice = Math.min(3, fromStateNow.armies - 1)
+                            const defenderDice = Math.min(2, toStateNow.armies)
+                            executeAttack(attackerDice, defenderDice)
+                            const lr = useGameStore.getState().lastBattleResult
+                            if (lr) {
+                              totalA += lr.attackerLosses || 0
+                              totalD += lr.defenderLosses || 0
+                              if (lr.conquered) { conquered = true; break }
+                            } else {
+                              break
+                            }
+                          }
+                          if (!conquered) {
+                            useGameStore.setState({ lastBattleResult: { attackerLosses: totalA, defenderLosses: totalD, conquered: false } as any })
+                          }
+                        }}
+                        className="px-3 py-2 text-xs bg-amber-500 text-white rounded-lg shadow hover:bg-amber-600"
+                      >
+                        ⚡ All‑in
+                      </button>
                     </div>
-                  </div>
-                 </div>
+                  )}
+                    </div>
+              )}
+                        </div>
+            </div>
+          </div>
           {/* Control Panel */}
           <div className="lg:col-span-1 xl:col-span-1 space-y-4">
             {toast && (
               <div className="bg-emerald-500/20 text-emerald-200 border border-emerald-400/40 p-3 rounded-lg text-sm">
                 {toast}
-              </div>
-            )}
+                      </div>
+                    )}
             {phaseInfo && (
               <div className="bg-slate-700/40 text-slate-200 border border-slate-600/50 p-3 rounded-lg text-xs">
                 {phaseInfo}

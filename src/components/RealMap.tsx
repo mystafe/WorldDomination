@@ -22,7 +22,7 @@ interface RealMapProps {
 export default function RealMap({ mapId, mapDefinition, territories, players, selected, onTerritoryClick, onTerritoryMouseDown, onTerritoryMouseUp, currentPlayerId = -1, phase, suggestedId }: RealMapProps) {
   const svgRef = useRef<SVGSVGElement | null>(null)
 
-  const { countryFeature, projection, path, canvas } = useMemo(() => {
+  const { countryFeature, projection, path, canvas, isMobile } = useMemo(() => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const world = world110 as any
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -43,7 +43,6 @@ export default function RealMap({ mapId, mapDefinition, territories, players, se
           const [[minLon, minLat], [maxLon, maxLat]] = b
           const cenLon = (minLon + maxLon) / 2
           const cenLat = (minLat + maxLat) / 2
-          // widen bbox to include more east and west
           if (cenLon >= -35 && cenLon <= 60 && cenLat >= 34 && cenLat <= 72) {
             europeFeatures.push(cf)
           }
@@ -65,9 +64,12 @@ export default function RealMap({ mapId, mapDefinition, territories, players, se
       }
     }
 
-    const canvas = mapId === 'europe' ? { w: 760, h: 860 } : { w: 900, h: 600 }
+    const mobile = typeof window !== 'undefined' && window.innerWidth < 768
+    const canvas = mapId === 'world'
+      ? (mobile ? { w: 1100, h: 360 } : { w: 1000, h: 600 })
+      : (mobile ? { w: 1100, h: 420 } : { w: 900, h: 600 })
+
     let projection = geoMercator().fitSize([canvas.w, canvas.h], f as any)
-    // Europe: focus more to the north, crop southern area
     if (mapId === 'europe') {
       const currentTranslate = projection.translate()
       const currentScale = projection.scale()
@@ -76,7 +78,7 @@ export default function RealMap({ mapId, mapDefinition, territories, players, se
         .scale(currentScale * 2.0)
     }
     const path = geoPath(projection)
-    return { countryFeature: f, projection, path, canvas }
+    return { countryFeature: f, projection, path, canvas, isMobile: mobile }
   }, [mapId])
 
   const ownerOf = (territoryId: string) => {
@@ -95,6 +97,9 @@ export default function RealMap({ mapId, mapDefinition, territories, players, se
         <filter id="bg-blur" x="-50%" y="-50%" width="200%" height="200%">
           <feGaussianBlur in="SourceGraphic" stdDeviation="30" />
         </filter>
+        <filter id="shadow" x="-50%" y="-50%" width="200%" height="200%">
+          <feDropShadow dx="0" dy="2" stdDeviation="3" floodColor="#000000" floodOpacity="0.25" />
+        </filter>
       </defs>
 
       {/* Countries backdrop */}
@@ -103,15 +108,16 @@ export default function RealMap({ mapId, mapDefinition, territories, players, se
         <path d={path(countryFeature as any)!} fill="#0b1220" stroke="#1e293b" strokeWidth={1.5} />
       </g>
 
-      {/* Soft continent background overlays */}
-      <g opacity={0.22} filter="url(#bg-blur)" style={{ pointerEvents: 'none' }}>
+      {/* Soft continent background overlays (stronger for world to increase separation) */}
+      <g opacity={mapId === 'world' ? 0.28 : 0.22} filter="url(#bg-blur)" style={{ pointerEvents: 'none' }}>
         {mapDefinition.continents.map(cont => (
           <g key={cont.id}>
             {mapDefinition.territories.filter(t => t.continent === cont.id).map(t => {
               if (t.lon == null || t.lat == null) return null
               const xy = projection([t.lon, t.lat]) as [number, number]
+              const radius = mapId === 'world' ? (isMobile ? 120 : 160) : 120
               return (
-                <circle key={t.id} cx={xy[0]} cy={xy[1]} r={120} fill={cont.color || '#64748b'} />
+                <circle key={t.id} cx={xy[0]} cy={xy[1]} r={radius} fill={(cont.color || '#64748b') + '66'} />
               )
             })}
           </g>
@@ -128,8 +134,8 @@ export default function RealMap({ mapId, mapDefinition, territories, players, se
           const cx = sx / pts.length, cy = sy / pts.length
           return (
             <g key={cont.id}>
-              <rect x={cx - 60} y={cy - 28} width={120} height={24} rx={6} fill="#0b1220AA" />
-              <text x={cx} y={cy - 12} textAnchor="middle" fontSize={12} fontWeight={700} fill="#e2e8f0">
+              <rect x={cx - 70} y={cy - 30} width={140} height={26} rx={8} fill="#0b1220AA" />
+              <text x={cx} y={cy - 12} textAnchor="middle" fontSize={isMobile ? 11 : 12} fontWeight={700} fill="#e2e8f0">
                 {cont.name} · +{cont.bonus}
               </text>
             </g>
@@ -137,7 +143,7 @@ export default function RealMap({ mapId, mapDefinition, territories, players, se
         })}
       </g>
 
-      {/* Neighbor links */}
+      {/* Neighbor links - dashed to clarify borders on all maps */}
       <g style={{ pointerEvents: 'none' }}>
         {mapDefinition.territories.map(t => (
           t.neighbors.map(nId => {
@@ -148,12 +154,11 @@ export default function RealMap({ mapId, mapDefinition, territories, players, se
             const bXY = b.lon != null && b.lat != null ? projection([b.lon, b.lat]) as [number, number] : null
             if (!aXY || !bXY) return null
             const sameCont = a.continent === b.continent
-            const cont = mapDefinition.continents.find(c=>c.id===a.continent)
-            const stroke = sameCont ? (cont?.color || '#334155') : '#334155'
-            const width = sameCont ? 1.8 : 1
-            const dash = sameCont ? undefined : '4 3'
+            const stroke = sameCont ? '#475569' : '#7c3aed'
+            const dash = sameCont ? '4 3' : '6 4'
+            const w = isMobile ? 1.6 : 1.2
             return (
-              <line key={`${a.id}-${b.id}`} x1={aXY[0]} y1={aXY[1]} x2={bXY[0]} y2={bXY[1]} stroke={stroke} strokeWidth={width} strokeDasharray={dash} opacity={sameCont?0.35:0.6} />
+              <line key={`${a.id}-${b.id}`} x1={aXY[0]} y1={aXY[1]} x2={bXY[0]} y2={bXY[1]} stroke={stroke} strokeWidth={w} strokeDasharray={dash} opacity={sameCont?0.55:0.8} />
             )
           })
         ))}
@@ -164,14 +169,7 @@ export default function RealMap({ mapId, mapDefinition, territories, players, se
         {mapDefinition.territories.map(t => {
           if (t.lon == null || t.lat == null) return null
 
-          // Per-territory visual adjustments (display-only)
-          let adjLat = t.lat
-          let adjLon = t.lon
-          if (mapId === 'europe') {
-            // no special-case offsets currently
-          }
-
-          const xy = projection([adjLon, adjLat]) as [number, number]
+          const xy = projection([t.lon, t.lat]) as [number, number]
           const owner = ownerOf(t.id)
           const state = territories.find(tt => tt.id === t.id)
           const isSelected = selectedFrom === t.id || selected?.to === t.id
@@ -190,13 +188,13 @@ export default function RealMap({ mapId, mapDefinition, territories, players, se
 
           const strokeColor = isSelected ? (owner?.color || '#94a3b8') : selectable ? (phase === 'attack' ? '#ef4444' : '#60a5fa') : (owner?.color || '#94a3b8')
           const strokeWidth = isSelected ? 2.5 : selectable ? 2 : 1.5
-          const radius = isSelected ? 10 : selectable ? 9 : 7
+          const radius = isSelected ? (isMobile ? 9 : 10) : selectable ? (isMobile ? 8 : 9) : (isMobile ? 6 : 7)
           const isCurrentPlayers = state?.ownerId === currentPlayerId && (phase === 'placement' || phase === 'draft')
           const isSuggested = suggestedId === t.id
           const nameSmall = lang === 'en' ? 'Land' : 'Toprak'
           const nameBig = lang === 'en' ? 'Area' : 'Alan'
-          const nameFont = mapId === 'europe' ? (big ? 11 : 9) : (big ? 12 : 10)
-          const armyFont = mapId === 'europe' ? 9 : 10
+          const nameFont = isMobile ? (big ? 10 : 9) : (mapId === 'europe' ? (big ? 11 : 9) : (big ? 12 : 10))
+          const armyFont = isMobile ? 9 : (mapId === 'europe' ? 9 : 10)
 
           return (
             <g key={t.id}
@@ -207,7 +205,7 @@ export default function RealMap({ mapId, mapDefinition, territories, players, se
                onTouchEnd={() => onTerritoryMouseUp?.(t.id)}
                style={{ cursor: 'pointer' }}>
               {/* invisible larger hit area */}
-              <circle cx={xy[0]} cy={xy[1]} r={16} fill="transparent" />
+              <circle cx={xy[0]} cy={xy[1]} r={isMobile ? 14 : 16} fill="transparent" />
               {isCurrentPlayers && (
                 <circle cx={xy[0]} cy={xy[1]} r={radius + 5} fill="none" stroke={(owner?.color || '#22c55e')} strokeOpacity={0.4} strokeWidth={4} />
               )}
@@ -217,9 +215,9 @@ export default function RealMap({ mapId, mapDefinition, territories, players, se
               {selectable && (
                 <circle cx={xy[0]} cy={xy[1]} r={radius + 6} fill="none" stroke={phase === 'attack' ? '#ef4444' : '#60a5fa'} strokeOpacity={0.5} strokeWidth={2} className="animate-pulse" />
               )}
-              <circle cx={xy[0]} cy={xy[1]} r={radius} fill={(owner?.color || '#64748b') + 'AA'} stroke={strokeColor} strokeWidth={strokeWidth} filter="url(#shadow)" />
+              <circle cx={xy[0]} cy={xy[1]} r={radius} fill={(owner?.color || '#64748b') + 'CC'} stroke={strokeColor} strokeWidth={strokeWidth} filter="url(#shadow)" />
               <text x={xy[0]} y={xy[1] - 12} textAnchor="middle" fontSize={nameFont} fontWeight={big ? 700 : 500} fill="#e2e8f0">{t.name}</text>
-              <text x={xy[0]} y={xy[1] + 4} textAnchor="middle" fontSize={armyFont} fill="#ffffff">{state?.armies ?? 0}</text>
+              <text x={xy[0]} y={xy[1] + (isMobile ? 3 : 4)} textAnchor="middle" fontSize={armyFont} fill="#ffffff">{state?.armies ?? 0}</text>
               <title>{big ? nameBig : nameSmall}</title>
             </g>
           )
