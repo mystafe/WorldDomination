@@ -31,6 +31,10 @@ export interface GameSettings {
   resourceLevel: 'low' | 'medium' | 'high'
   attackMode: 'single' | 'all-in'
   instantMode?: boolean
+  lowEffects?: boolean
+  colorblindMode?: boolean
+  sfx?: boolean
+  mapVariant?: 'standard' | 'mini'
 }
 
 export interface GameState {
@@ -114,6 +118,9 @@ export interface GameState {
   // placement reserves for sequential mode
   placementReserves?: number[]
   placementStage?: 'claim' | 'distribute'
+  // Persistence
+  saveGame?: () => boolean
+  loadGame?: () => boolean
 }
 
 export interface HistoryEntry {
@@ -151,7 +158,11 @@ const getInitialState = (): GameState => ({
     battleModel: 'realistic',
     resourceLevel: 'medium',
     attackMode: 'single',
-    instantMode: false
+    instantMode: false,
+    lowEffects: false,
+    colorblindMode: false,
+    sfx: true,
+    mapVariant: 'standard'
   },
   setSettings: () => {},
   redeemCards: () => ({ success: false }),
@@ -185,6 +196,70 @@ export const useGameStore = create<GameState>((set, get) => ({
   ...initialState,
   
   setSettings: (s) => set((state) => ({ settings: { ...state.settings, ...s } })),
+  saveGame: () => {
+    try {
+      const s = get()
+      const snapshot = {
+        selectedMap: s.selectedMap,
+        players: s.players,
+        territories: s.territories,
+        phase: s.phase,
+        currentPlayerIndex: s.currentPlayerIndex,
+        turn: s.turn,
+        draftArmies: s.draftArmies,
+        attackFrom: s.attackFrom,
+        attackTo: s.attackTo,
+        lastBattleResult: s.lastBattleResult,
+        fortifyFrom: s.fortifyFrom,
+        fortifyTo: s.fortifyTo,
+        cardsDeck: s.cardsDeck,
+        conquestMadeThisTurn: s.conquestMadeThisTurn,
+        draftHasPlaced: s.draftHasPlaced,
+        settings: s.settings,
+        history: s.history,
+        placementReserves: s.placementReserves,
+        placementStage: s.placementStage
+      }
+      localStorage.setItem('risk-save', JSON.stringify(snapshot))
+      return true
+    } catch {
+      return false
+    }
+  },
+  loadGame: () => {
+    try {
+      const raw = localStorage.getItem('risk-save')
+      if (!raw) return false
+      const snap = JSON.parse(raw)
+      const mapDef = getMapById(snap.selectedMap)
+      if (!mapDef) return false
+      set({
+        selectedMap: snap.selectedMap,
+        mapDefinition: mapDef,
+        players: snap.players || [],
+        territories: snap.territories || [],
+        phase: snap.phase || 'draft',
+        currentPlayerIndex: snap.currentPlayerIndex || 0,
+        turn: snap.turn || 1,
+        draftArmies: snap.draftArmies || 0,
+        attackFrom: snap.attackFrom || null,
+        attackTo: snap.attackTo || null,
+        lastBattleResult: snap.lastBattleResult || null,
+        fortifyFrom: snap.fortifyFrom || null,
+        fortifyTo: snap.fortifyTo || null,
+        cardsDeck: snap.cardsDeck || [],
+        conquestMadeThisTurn: !!snap.conquestMadeThisTurn,
+        draftHasPlaced: !!snap.draftHasPlaced,
+        settings: { ...initialState.settings, ...(snap.settings || {}) },
+        history: snap.history || [],
+        placementReserves: snap.placementReserves,
+        placementStage: snap.placementStage
+      })
+      return true
+    } catch {
+      return false
+    }
+  },
   redeemCards: () => {
     const state = get()
     const currentPlayer = state.players[state.currentPlayerIndex]
@@ -266,13 +341,19 @@ export const useGameStore = create<GameState>((set, get) => ({
   },
   
   setMap: (mapId) => {
-    const mapDef = getMapById(mapId)
+    const variant = get().settings.mapVariant || 'standard'
+    let targetId: string = mapId
+    if (variant === 'mini') {
+      const alt = `${mapId}_mini`
+      if (getMapById(alt)) targetId = alt
+    }
+    const mapDef = getMapById(targetId)
     if (!mapDef) {
       console.error('Map not found:', mapId)
       return
     }
     
-    console.log('Setting map:', mapId, 'territories:', mapDef.territories.length)
+    console.log('Setting map:', targetId, 'territories:', mapDef.territories.length)
     
     set({
       selectedMap: mapId,
@@ -293,14 +374,9 @@ export const useGameStore = create<GameState>((set, get) => ({
 
     const placementMode = placementModeOverride || state.settings.placementMode
 
-    const playerColors = [
-      "#EF4444",
-      "#3B82F6",
-      "#10B981",
-      "#F59E0B",
-      "#8B5CF6",
-      "#EC4899"
-    ]
+    const playerColors = state.settings.colorblindMode
+      ? ["#0072B2","#E69F00","#009E73","#CC79A7","#D55E00","#56B4E9"]
+      : ["#EF4444","#3B82F6","#10B981","#F59E0B","#8B5CF6","#EC4899"]
 
     const players: Player[] = playerNames.map((name, i) => ({
       id: i,

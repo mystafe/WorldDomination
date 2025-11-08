@@ -19,6 +19,11 @@ function App() {
   const holdCountRef = useRef<number>(0)
   const holdFiredRef = useRef<boolean>(false)
   const [isMobile, setIsMobile] = useState(false)
+  const audioRef = useRef<HTMLAudioElement | null>(null)
+  const [musicOn, setMusicOn] = useState(true)
+  const [searchTerm, setSearchTerm] = useState('')
+  const [focusId, setFocusId] = useState<string | null>(null)
+  const [showOnboarding, setShowOnboarding] = useState(false)
 
   useEffect(() => {
     const chk = () => setIsMobile(typeof window !== 'undefined' && window.innerWidth < 768)
@@ -27,6 +32,37 @@ function App() {
     return () => window.removeEventListener('resize', chk)
   }, [])
   const mapHeightClass = isMobile ? 'h-[55vh]' : 'h-[90vh]'
+  useEffect(() => {
+    // Background music on landing
+    try {
+      if (!setupComplete) {
+        if (!audioRef.current) {
+          audioRef.current = new Audio('/assets/champions.mp3')
+          audioRef.current.loop = true
+          audioRef.current.volume = 0.18
+        }
+        if (musicOn) {
+          audioRef.current.play().catch(() => {})
+        } else {
+          audioRef.current.pause()
+        }
+      } else {
+        audioRef.current?.pause()
+      }
+    } catch {}
+    return () => {
+      audioRef.current?.pause()
+    }
+  }, [setupComplete, musicOn])
+  useEffect(() => {
+    // Onboarding once on game screen
+    if (setupComplete) {
+      try {
+        const done = localStorage.getItem('risk-onboarding-dismissed')
+        if (!done) setShowOnboarding(true)
+      } catch {}
+    }
+  }, [setupComplete])
   
   const {
     selectedMap,
@@ -236,6 +272,31 @@ function App() {
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
   }, [currentPlayer, phase, attackFrom, attackTo, lastBattleResult, fortifyFrom, fortifyTo])
+
+  // SFX for battle events
+  const playSfx = (type: 'attack' | 'conquer') => {
+    if (!config.sfx) return
+    try {
+      const ctx = new (window.AudioContext || (window as any).webkitAudioContext)()
+      const o = ctx.createOscillator()
+      const g = ctx.createGain()
+      o.type = 'sine'
+      o.frequency.value = type === 'conquer' ? 880 : 440
+      g.gain.value = 0.001
+      o.connect(g)
+      g.connect(ctx.destination)
+      o.start()
+      // simple envelope
+      g.gain.exponentialRampToValueAtTime(0.05, ctx.currentTime + 0.01)
+      g.gain.exponentialRampToValueAtTime(0.00001, ctx.currentTime + (type === 'conquer' ? 0.35 : 0.18))
+      o.stop(ctx.currentTime + (type === 'conquer' ? 0.4 : 0.2))
+      setTimeout(() => ctx.close(), 500)
+    } catch {}
+  }
+  useEffect(() => {
+    if (!lastBattleResult) return
+    playSfx(lastBattleResult.conquered ? 'conquer' : 'attack')
+  }, [lastBattleResult])
   
   const suggestedTerritoryId = useMemo(() => {
     if (!mapDefinition || !currentPlayer) return undefined
@@ -310,8 +371,12 @@ function App() {
     setConfig(next)
     saveConfig(next)
     // Map GameConfig keys to store settings keys when applicable
-    if (key === 'placementMode' || key === 'resourceLevel' || key === 'attackMode' || key === 'instantMode') {
+    if (key === 'placementMode' || key === 'resourceLevel' || key === 'attackMode' || key === 'instantMode' || key === 'mapVariant' || key === 'lowEffects' || key === 'colorblindMode' || key === 'sfx') {
       setSettings({ [key]: value } as any)
+    }
+    if (key === 'mapVariant') {
+      // reload map definition to reflect variant
+      setMap((next.selectedMap as any))
     }
   }
   
@@ -323,6 +388,10 @@ function App() {
       resourceLevel: (config.resourceLevel || 'medium') as any,
       attackMode: (config.attackMode || 'single') as any,
       instantMode: !!config.instantMode,
+      lowEffects: !!config.lowEffects,
+      colorblindMode: !!config.colorblindMode,
+      sfx: !!config.sfx,
+      mapVariant: (config.mapVariant || 'standard') as any
     })
     setMap(config.selectedMap)
     setTimeout(() => {
@@ -334,18 +403,69 @@ function App() {
   // Setup screen
   if (!setupComplete) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center p-4">
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center p-4 relative overflow-hidden">
+        {/* Decorative background */}
+        <img
+          src="/start-bg.svg"
+          alt=""
+          className="pointer-events-none select-none absolute -top-20 right-0 opacity-20 w-[900px] max-w-none animate-float"
+        />
+        {/* Top bar actions */}
+        <div className="absolute top-4 left-0 right-0 px-4">
+          <div className="max-w-2xl mx-auto flex items-center justify-between">
+            <div className="text-slate-400 text-xs">
+              {config.language === 'tr' ? 'Sürüm' : 'Version'} 1.0.2
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="bg-slate-800/60 border border-slate-700/60 rounded-xl p-1">
+                <button
+                  onClick={() => {
+                    const next = { ...config, language: 'tr' as const }
+                    setConfig(next)
+                    saveConfig(next)
+                    try { document.documentElement.lang = 'tr' } catch {}
+                  }}
+                  className={`px-3 py-1 rounded-lg text-xs font-semibold ${config.language==='tr' ? 'bg-emerald-500 text-white' : 'text-slate-300 hover:text-white'}`}
+                >
+                  TR
+                </button>
+                <button
+                  onClick={() => {
+                    const next = { ...config, language: 'en' as const }
+                    setConfig(next)
+                    saveConfig(next)
+                    try { document.documentElement.lang = 'en' } catch {}
+                  }}
+                  className={`px-3 py-1 rounded-lg text-xs font-semibold ${config.language==='en' ? 'bg-blue-500 text-white' : 'text-slate-300 hover:text-white'}`}
+                >
+                  EN
+                </button>
+              </div>
+              <button
+                onClick={() => setMusicOn(v => !v)}
+                className="btn btn-secondary !px-3 !py-2 text-xs"
+                aria-label="Toggle music"
+                title={musicOn ? (config.language==='tr' ? 'Müziği kapat' : 'Turn off music') : (config.language==='tr' ? 'Müziği aç' : 'Turn on music')}
+              >
+                {musicOn ? '🔊' : '🔈'}
+              </button>
+            </div>
+          </div>
+        </div>
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           className="max-w-2xl w-full"
         >
           <div className="text-center mb-8">
-            <h1 className="text-5xl font-bold text-white mb-2">{tr('title')}</h1>
-            <p className="text-slate-400 text-lg">{tr('setupTitle')}</p>
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-xs mb-3 animate-fade-in-up">
+              🌍 {config.language==='tr' ? 'Strateji • Çok oyunculu • Yapay Zekâ' : 'Strategy • Multiplayer • AI'}
+            </div>
+            <h1 className="text-5xl font-extrabold gradient-text tracking-tight mb-2">{tr('title')}</h1>
+            <p className="text-slate-300 text-lg">{tr('setupTitle')}</p>
           </div>
           
-          <div className="bg-slate-800/50 backdrop-blur-xl rounded-2xl border border-slate-700/50 p-8 space-y-6">
+          <div className="bg-slate-800/50 backdrop-blur-xl rounded-2xl border border-slate-700/50 p-8 space-y-6 card">
             {/* Map Selection */}
             <div>
               <label className="block text-sm font-semibold text-emerald-300 mb-3 uppercase tracking-wide">
@@ -365,6 +485,23 @@ function App() {
                     {tr(mapId)}
                   </button>
                 ))}
+              </div>
+              {/* Map size */}
+              <div className="mt-3">
+                <div className="text-xs text-slate-400 mb-1">{config.language==='tr' ? 'Harita Boyutu' : 'Map Size'}</div>
+                <select
+                  value={config.mapVariant || 'standard'}
+                  onChange={(e)=> applySetting('mapVariant', e.target.value as any)}
+                  className="w-full rounded-md bg-slate-800/70 border border-slate-600/50 px-3 py-2 text-white"
+                >
+                  <option value="standard">{config.language==='tr' ? 'Standart' : 'Standard'}</option>
+                  <option value="mini">{config.language==='tr' ? 'Mini (daha az bölge)' : 'Mini (fewer territories)'}</option>
+                </select>
+                {config.selectedMap==='turkey' && (config.mapVariant==='mini') && (
+                  <div className="text-xs text-slate-500 mt-1">
+                    {config.language==='tr' ? 'Türkiye mini: ~28 bölge' : 'Turkey mini: ~28 territories'}
+                  </div>
+                )}
               </div>
             </div>
             
@@ -473,15 +610,63 @@ function App() {
                   </label>
                       </div>
                       </div>
+              <div className="grid sm:grid-cols-3 gap-3 mt-3">
+                <label className="inline-flex items-center gap-2 text-sm text-slate-300">
+                  <input
+                    type="checkbox"
+                    checked={!!config.colorblindMode}
+                    onChange={(e)=> {
+                      const next = { ...config, colorblindMode: e.target.checked }
+                      setConfig(next); saveConfig(next)
+                      setSettings({ colorblindMode: e.target.checked })
+                    }}
+                  />
+                  <span>{config.language==='tr' ? 'Renk körlüğü paleti' : 'Colorblind palette'}</span>
+                </label>
+                <label className="inline-flex items-center gap-2 text-sm text-slate-300">
+                  <input
+                    type="checkbox"
+                    checked={!!config.lowEffects}
+                    onChange={(e)=> {
+                      const next = { ...config, lowEffects: e.target.checked }
+                      setConfig(next); saveConfig(next)
+                      setSettings({ lowEffects: e.target.checked })
+                    }}
+                  />
+                  <span>{config.language==='tr' ? 'Performans modu (az efekt)' : 'Performance mode (low effects)'}</span>
+                </label>
+                <label className="inline-flex items-center gap-2 text-sm text-slate-300">
+                  <input
+                    type="checkbox"
+                    checked={!!config.sfx}
+                    onChange={(e)=> {
+                      const next = { ...config, sfx: e.target.checked }
+                      setConfig(next); saveConfig(next)
+                      setSettings({ sfx: e.target.checked })
+                    }}
+                  />
+                  <span>{config.language==='tr' ? 'Ses efektleri' : 'Sound effects'}</span>
+                </label>
+              </div>
               <div className="text-xs text-slate-500 mt-2">
                 {config.language==='tr' ? 'Not: Yerleşim modu yeni oyunda etkili olur.' : 'Note: Placement mode applies on new game.'}
               </div>
                 </div>
+            {/* Quick tips */}
+            <div className="bg-slate-900/40 border border-slate-700/40 rounded-xl p-4">
+              <div className="text-xs text-slate-400 mb-2">{config.language==='tr' ? 'İpuçları' : 'Tips'}</div>
+              <ul className="text-sm text-slate-300 grid sm:grid-cols-2 gap-x-6 gap-y-1">
+                <li>• {config.language==='tr' ? 'Z/A ile yakınlaştır/uzaklaştır (haritada)' : 'Use +/- to zoom (on the map)'}</li>
+                <li>• {config.language==='tr' ? 'Saldırıda A tuşu: tek tur' : 'In attack, A key: one round'}</li>
+                <li>• {config.language==='tr' ? 'Saldırıda All‑in ile hızlandır' : 'Use All‑in to fast‑resolve'}</li>
+                <li>• {config.language==='tr' ? 'Dokun ve basılı tut: hızlı yerleştir' : 'Press & hold to place faster'}</li>
+              </ul>
+            </div>
 
             {/* Start Button */}
                       <button
               onClick={handleStartGame}
-              className="w-full py-4 bg-gradient-to-r from-emerald-500 to-blue-500 text-white text-xl font-bold rounded-xl hover:from-emerald-600 hover:to-blue-600 transition-all shadow-lg hover:shadow-xl transform hover:scale-105"
+              className="w-full py-4 bg-gradient-to-r from-emerald-500 to-blue-500 text-white text-xl font-bold rounded-xl hover:from-emerald-600 hover:to-blue-600 transition-all shadow-lg hover:shadow-xl transform hover:scale-105 btn btn-primary"
             >
               🎯 {tr('startGame')}
                       </button>
@@ -503,7 +688,32 @@ function App() {
           className="max-w-2xl w-full text-center"
         >
           <div className="bg-slate-800/50 backdrop-blur-xl rounded-2xl border border-slate-700/50 p-12">
-            <div className="text-6xl mb-4">🏆</div>
+            <div className="relative">
+              <div className="text-6xl mb-4 animate-fade-in-scale">🏆</div>
+              {/* Confetti overlay */}
+              <div className="pointer-events-none absolute inset-0 overflow-hidden">
+                {Array.from({ length: 36 }).map((_, i) => {
+                  const left = Math.random() * 100
+                  const delay = Math.random() * 0.8
+                  const duration = 2.5 + Math.random() * 1.8
+                  const colors = ['#10B981','#3B82F6','#F59E0B','#EF4444','#8B5CF6','#EC4899']
+                  const color = colors[i % colors.length]
+                  return (
+                    <span
+                      key={i}
+                      className="confetti-piece"
+                      style={{
+                        left: `${left}%`,
+                        top: '-10%',
+                        backgroundColor: color,
+                        animationDuration: `${duration}s`,
+                        animationDelay: `${delay}s`
+                      }}
+                    />
+                  )
+                })}
+              </div>
+            </div>
             <h1 className="text-4xl font-bold text-white mb-4">
               {config.language === 'tr' ? 'Oyun Bitti!' : 'Game Over!'}
             </h1>
@@ -533,7 +743,16 @@ function App() {
         <div className="bg-slate-800/50 backdrop-blur-xl rounded-2xl border border-slate-700/50 p-4 mb-4">
           <div className="flex justify-between items-center">
             <div>
-              <h1 className="text-2xl font-bold text-white">{tr('title')}</h1>
+              <h1
+                className="text-2xl font-bold text-white cursor-pointer hover:underline"
+                onClick={() => {
+                  setSetupComplete(false)
+                  try { useGameStore.getState().reset() } catch {}
+                }}
+                title={config.language==='tr' ? 'Anasayfa' : 'Home'}
+              >
+                {tr('title')}
+              </h1>
               <p className="text-slate-400">
                 {getMapById(selectedMap)?.name} • {tr('turn')} {turn}
               </p>
@@ -559,6 +778,30 @@ function App() {
                   className="w-16 h-16 rounded-full border-4 animate-pulse"
                   style={{ borderColor: currentPlayer.color, backgroundColor: currentPlayer.color + '40' }}
                 />
+                <div className="flex flex-col gap-2">
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => {
+                        const ok = (useGameStore.getState().saveGame?.() || false)
+                        setToast(ok ? (config.language==='tr' ? 'Oyun kaydedildi' : 'Game saved') : (config.language==='tr' ? 'Kaydetme başarısız' : 'Save failed'))
+                        setTimeout(()=> setToast(null), 2000)
+                      }}
+                      className="px-3 py-2 text-xs rounded bg-slate-700 text-white hover:bg-slate-600"
+                    >
+                      💾 {config.language==='tr' ? 'Kaydet' : 'Save'}
+                    </button>
+                    <button
+                      onClick={() => {
+                        const ok = (useGameStore.getState().loadGame?.() || false)
+                        setToast(ok ? (config.language==='tr' ? 'Oyun yüklendi' : 'Game loaded') : (config.language==='tr' ? 'Kayıt bulunamadı' : 'No save found'))
+                        setTimeout(()=> setToast(null), 2000)
+                      }}
+                      className="px-3 py-2 text-xs rounded bg-slate-700 text-white hover:bg-slate-600"
+                    >
+                      📂 {config.language==='tr' ? 'Yükle' : 'Load'}
+                    </button>
+                  </div>
+                </div>
               </div>
             )}
             </div>
@@ -571,6 +814,48 @@ function App() {
               <h2 className="text-xl font-bold text-white mb-4">
                 {getMapById(selectedMap)?.name} • {territories.length} bölge
               </h2>
+              {/* Territory search */}
+              {mapDefinition && (
+                <div className="mb-3 flex items-center gap-2">
+                  <input
+                    value={searchTerm}
+                    onChange={(e)=> setSearchTerm(e.target.value)}
+                    list="territories"
+                    placeholder={config.language==='tr' ? 'Bölge ara...' : 'Search territory...'}
+                    className="px-3 py-2 rounded-lg bg-slate-700/50 border border-slate-600 text-white w-full max-w-xs"
+                  />
+                  <datalist id="territories">
+                    {mapDefinition.territories.map(t => (
+                      <option key={t.id} value={t.name} />
+                    ))}
+                  </datalist>
+                  <button
+                    onClick={() => {
+                      if (!mapDefinition) return
+                      const term = searchTerm.trim().toLowerCase()
+                      const t = mapDefinition.territories.find(tt => tt.name.toLowerCase().includes(term))
+                      if (t) {
+                        setFocusId(t.id)
+                        setTimeout(()=> setFocusId(null), 3000)
+                      } else {
+                        setToast(config.language==='tr' ? 'Bölge bulunamadı' : 'Territory not found')
+                        setTimeout(()=> setToast(null), 1500)
+                      }
+                    }}
+                    className="px-3 py-2 text-sm rounded bg-emerald-600 text-white hover:bg-emerald-700"
+                  >
+                    {config.language==='tr' ? 'Git' : 'Go'}
+                  </button>
+                  {focusId && (
+                    <button
+                      onClick={() => setFocusId(null)}
+                      className="px-3 py-2 text-sm rounded bg-slate-700 text-white hover:bg-slate-600"
+                    >
+                      {config.language==='tr' ? 'Temizle' : 'Clear'}
+                    </button>
+                  )}
+                </div>
+              )}
               
               <div className={`relative ${mapHeightClass}`}>
               
@@ -664,7 +949,10 @@ function App() {
                     }}
                     currentPlayerId={currentPlayer ? currentPlayer.id : -1}
                     phase={phase}
-                    suggestedId={suggestedTerritoryId}
+                    placementStage={placementStage}
+                    suggestedId={suggestedTerritoryId || focusId || undefined}
+                    focusTerritoryId={focusId || undefined}
+                    lowEffects={!!config.lowEffects}
                   />
                 ) : (
                   <div className="flex items-center justify-center h-full">
@@ -764,6 +1052,38 @@ function App() {
                       <button onClick={() => executeFortify(0)} className="px-3 py-2 text-xs bg-slate-600 text-white rounded-lg shadow hover:bg-slate-700">End Turn</button>
                     </div>
                   )}
+                </div>
+              )}
+              {/* Onboarding overlay */}
+              {showOnboarding && (
+                <div className="absolute inset-0 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm">
+                  <div className="card p-6 max-w-md w-full border border-slate-700/60">
+                    <div className="text-lg font-bold text-white mb-2">{config.language==='tr' ? 'Hoş geldin!' : 'Welcome!'}</div>
+                    <div className="text-sm text-slate-300 space-y-1 mb-4">
+                      <div>• {config.language==='tr' ? 'Haritayı sürükleyerek gez, fare tekeri ile yakınlaştır.' : 'Drag to pan, mouse wheel to zoom.'}</div>
+                      <div>• {config.language==='tr' ? 'A/E/F/R ile saldır/bitir/takviye/kart.' : 'A/E/F/R for attack/end/fortify/redeem.'}</div>
+                      <div>• {config.language==='tr' ? 'Alt soldaki minimap ile hızlı odaklan.' : 'Use the bottom-left minimap to focus quickly.'}</div>
+                    </div>
+                    <div className="flex justify-end gap-2">
+                      <button
+                        onClick={() => {
+                          setShowOnboarding(false)
+                        }}
+                        className="btn btn-secondary !px-4 !py-2 text-sm"
+                      >
+                        {config.language==='tr' ? 'Kapat' : 'Close'}
+                      </button>
+                      <button
+                        onClick={() => {
+                          setShowOnboarding(false)
+                          try { localStorage.setItem('risk-onboarding-dismissed', '1') } catch {}
+                        }}
+                        className="btn btn-primary !px-4 !py-2 text-sm"
+                      >
+                        {config.language==='tr' ? 'Bir daha gösterme' : "Don't show again"}
+                      </button>
+                    </div>
+                  </div>
                 </div>
               )}
                         </div>

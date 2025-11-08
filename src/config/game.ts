@@ -3,10 +3,14 @@ export interface GameConfig {
   playerCount: number
   humanPlayers: number
   language: 'tr' | 'en'
+  mapVariant?: 'standard' | 'mini'
   placementMode?: 'random' | 'sequential'
   resourceLevel?: 'low' | 'medium' | 'high'
   attackMode?: 'single' | 'all-in'
   instantMode?: boolean
+  lowEffects?: boolean
+  colorblindMode?: boolean
+  sfx?: boolean
 }
 
 export const defaultConfig: GameConfig = {
@@ -14,10 +18,14 @@ export const defaultConfig: GameConfig = {
   playerCount: 3,
   humanPlayers: 1,
   language: 'tr',
+  mapVariant: 'standard',
   placementMode: 'random',
   resourceLevel: 'medium',
   attackMode: 'single',
-  instantMode: false
+  instantMode: false,
+  lowEffects: false,
+  colorblindMode: false,
+  sfx: true
 }
 
 const CONFIG_KEY = "risk-game-config"
