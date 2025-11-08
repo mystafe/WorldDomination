@@ -3,7 +3,7 @@ export interface GameConfig {
   playerCount: number
   humanPlayers: number
   language: 'tr' | 'en'
-  mapVariant?: 'standard' | 'mini'
+  mapVariant?: 'standard' | 'mini' | 'midi'
   placementMode?: 'random' | 'sequential'
   resourceLevel?: 'low' | 'medium' | 'high'
   attackMode?: 'single' | 'all-in'
@@ -14,7 +14,7 @@ export interface GameConfig {
 }
 
 export const defaultConfig: GameConfig = {
-  selectedMap: 'world',
+  selectedMap: 'turkey',
   playerCount: 3,
   humanPlayers: 1,
   language: 'tr',

@@ -32,6 +32,10 @@ export default function RealMap({ mapId, mapDefinition, territories, players, se
   const [showHelp, setShowHelp] = useState(false)
   const [minimapActive, setMinimapActive] = useState(true)
   const minimapTimerRef = useRef<number | null>(null)
+  useEffect(() => {
+    const t = window.setTimeout(() => setMinimapActive(false), 1200)
+    return () => window.clearTimeout(t)
+  }, [])
 
   const { countryFeatures, projection, path, canvas, isMobile } = useMemo(() => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -355,8 +359,8 @@ export default function RealMap({ mapId, mapDefinition, territories, players, se
             const isFocused = focusTerritoryId === t.id
             const nameSmall = lang === 'en' ? 'Land' : 'Toprak'
             const nameBig = lang === 'en' ? 'Area' : 'Alan'
-            const nameFont = isMobile ? (big ? 10 : 9) : (mapId === 'europe' ? (big ? 11 : 9) : (big ? 12 : 10))
-            const armyFont = isMobile ? 9 : (mapId === 'europe' ? 9 : 10)
+            const nameFont = isMobile ? (big ? 8 : 6.8) : (mapId === 'europe' ? (big ? 10 : 8) : (big ? 11 : 9))
+            const armyFont = isMobile ? 7 : (mapId === 'europe' ? 8 : 9)
 
             // Clickability hint: dim non-clickables
             const isMine = state?.ownerId === currentPlayerId
@@ -413,7 +417,7 @@ export default function RealMap({ mapId, mapDefinition, territories, players, se
                 )}
                 <circle cx={xy[0]} cy={xy[1]} r={radius} fill={baseFill} stroke={strokeColor} strokeWidth={strokeWidth} filter={lowEffects ? undefined : "url(#shadow)"} />
                 {/* Name with outline for readability */}
-                <text x={xy[0]} y={xy[1] - 12} textAnchor="middle" fontSize={nameFont} fontWeight={big ? 700 : 500} stroke="#0b1220" strokeWidth={2.2} strokeOpacity={0.9} fill="none">{t.name}</text>
+                <text x={xy[0]} y={xy[1] - 12} textAnchor="middle" fontSize={nameFont} fontWeight={big ? 700 : 500} stroke="#0b1220" strokeWidth={2.0} strokeOpacity={0.9} fill="none">{t.name}</text>
                 <text x={xy[0]} y={xy[1] - 12} textAnchor="middle" fontSize={nameFont} fontWeight={big ? 700 : 500} fill={nameFill}>{t.name}</text>
                 <text x={xy[0]} y={xy[1] + (isMobile ? 3 : 4)} textAnchor="middle" fontSize={armyFont} fill={armyFill}>{state?.armies ?? 0}</text>
                 <title>{big ? nameBig : nameSmall}</title>
@@ -442,15 +446,81 @@ export default function RealMap({ mapId, mapDefinition, territories, players, se
       {/* Controls (not affected by zoom) */}
       <g transform={`translate(${canvas.w - 48} 16)`}>
         <g>
-          <rect x={-28} y={0} width={28} height={28} rx={6} fill="#0b1220CC" stroke="#334155" onClick={() => { setTransform(t => ({ ...t, scale: clamp(t.scale * 1.15, 0.7, 3.5) })); setMinimapActive(true); if (minimapTimerRef.current) window.clearTimeout(minimapTimerRef.current); minimapTimerRef.current = window.setTimeout(()=> setMinimapActive(false), 2500) }} style={{ cursor: 'pointer' }} />
+          <rect
+            x={-28}
+            y={0}
+            width={28}
+            height={28}
+            rx={6}
+            fill="#0b1220CC"
+            stroke="#334155"
+            onClick={() => {
+              setTransform(t => ({ ...t, scale: clamp(t.scale * 1.15, 0.7, 3.5) }));
+              setMinimapActive(true);
+              if (minimapTimerRef.current) window.clearTimeout(minimapTimerRef.current);
+              minimapTimerRef.current = window.setTimeout(()=> setMinimapActive(false), 2500);
+            }}
+            onTouchStart={(e) => {
+              e.preventDefault();
+              setTransform(t => ({ ...t, scale: clamp(t.scale * 1.15, 0.7, 3.5) }));
+              setMinimapActive(true);
+              if (minimapTimerRef.current) window.clearTimeout(minimapTimerRef.current);
+              minimapTimerRef.current = window.setTimeout(()=> setMinimapActive(false), 2500);
+            }}
+            style={{ cursor: 'pointer' }}
+          />
           <text x={-14} y={18} textAnchor="middle" fontSize={16} fill="#e2e8f0">+</text>
         </g>
         <g transform="translate(0 36)">
-          <rect x={-28} y={0} width={28} height={28} rx={6} fill="#0b1220CC" stroke="#334155" onClick={() => { setTransform(t => ({ ...t, scale: clamp(t.scale / 1.15, 0.7, 3.5) })); setMinimapActive(true); if (minimapTimerRef.current) window.clearTimeout(minimapTimerRef.current); minimapTimerRef.current = window.setTimeout(()=> setMinimapActive(false), 2500) }} style={{ cursor: 'pointer' }} />
+          <rect
+            x={-28}
+            y={0}
+            width={28}
+            height={28}
+            rx={6}
+            fill="#0b1220CC"
+            stroke="#334155"
+            onClick={() => {
+              setTransform(t => ({ ...t, scale: clamp(t.scale / 1.15, 0.7, 3.5) }));
+              setMinimapActive(true);
+              if (minimapTimerRef.current) window.clearTimeout(minimapTimerRef.current);
+              minimapTimerRef.current = window.setTimeout(()=> setMinimapActive(false), 2500);
+            }}
+            onTouchStart={(e) => {
+              e.preventDefault();
+              setTransform(t => ({ ...t, scale: clamp(t.scale / 1.15, 0.7, 3.5) }));
+              setMinimapActive(true);
+              if (minimapTimerRef.current) window.clearTimeout(minimapTimerRef.current);
+              minimapTimerRef.current = window.setTimeout(()=> setMinimapActive(false), 2500);
+            }}
+            style={{ cursor: 'pointer' }}
+          />
           <text x={-14} y={18} textAnchor="middle" fontSize={16} fill="#e2e8f0">−</text>
         </g>
         <g transform="translate(0 72)">
-          <rect x={-28} y={0} width={28} height={28} rx={6} fill="#0b1220CC" stroke="#334155" onClick={() => { setTransform({ scale: 1, tx: 0, ty: 0 }); setMinimapActive(true); if (minimapTimerRef.current) window.clearTimeout(minimapTimerRef.current); minimapTimerRef.current = window.setTimeout(()=> setMinimapActive(false), 2500) }} style={{ cursor: 'pointer' }} />
+          <rect
+            x={-28}
+            y={0}
+            width={28}
+            height={28}
+            rx={6}
+            fill="#0b1220CC"
+            stroke="#334155"
+            onClick={() => {
+              setTransform({ scale: 1, tx: 0, ty: 0 });
+              setMinimapActive(true);
+              if (minimapTimerRef.current) window.clearTimeout(minimapTimerRef.current);
+              minimapTimerRef.current = window.setTimeout(()=> setMinimapActive(false), 2500);
+            }}
+            onTouchStart={(e) => {
+              e.preventDefault();
+              setTransform({ scale: 1, tx: 0, ty: 0 });
+              setMinimapActive(true);
+              if (minimapTimerRef.current) window.clearTimeout(minimapTimerRef.current);
+              minimapTimerRef.current = window.setTimeout(()=> setMinimapActive(false), 2500);
+            }}
+            style={{ cursor: 'pointer' }}
+          />
           <text x={-14} y={18} textAnchor="middle" fontSize={10} fill="#e2e8f0">⟲</text>
         </g>
       </g>
@@ -496,8 +566,8 @@ export default function RealMap({ mapId, mapDefinition, territories, players, se
         const onUp = () => { mmDragging = false }
 
         return (
-          <g transform={`translate(16 ${canvas.h - (mmH + 16)})`} style={{ cursor: 'pointer', opacity: minimapActive ? 1 : 0.28, transition: 'opacity 0.3s ease' }} onMouseEnter={() => { setMinimapActive(true); if (minimapTimerRef.current) window.clearTimeout(minimapTimerRef.current) }} onMouseLeave={() => { if (minimapTimerRef.current) window.clearTimeout(minimapTimerRef.current); minimapTimerRef.current = window.setTimeout(()=> setMinimapActive(false), 1200) }}>
-            <g onMouseDown={(e)=>{ onDown(e); setMinimapActive(true) }} onMouseMove={(e)=> { onMove(e); setMinimapActive(true) }} onMouseUp={()=> { onUp(); if (minimapTimerRef.current) window.clearTimeout(minimapTimerRef.current); minimapTimerRef.current = window.setTimeout(()=> setMinimapActive(false), 2000) }}>
+          <g transform={`translate(16 ${canvas.h - (mmH + 16)})`} style={{ cursor: 'pointer', opacity: minimapActive ? 1 : 0, transition: 'opacity 0.3s ease' }} onMouseEnter={() => { setMinimapActive(true); if (minimapTimerRef.current) window.clearTimeout(minimapTimerRef.current) }} onMouseLeave={() => { if (minimapTimerRef.current) window.clearTimeout(minimapTimerRef.current); minimapTimerRef.current = window.setTimeout(()=> setMinimapActive(false), 1200) }} onTouchStart={() => { setMinimapActive(true); if (minimapTimerRef.current) window.clearTimeout(minimapTimerRef.current) }} onTouchEnd={() => { if (minimapTimerRef.current) window.clearTimeout(minimapTimerRef.current); minimapTimerRef.current = window.setTimeout(()=> setMinimapActive(false), 1200) }}>
+            <g onMouseDown={(e)=>{ onDown(e); setMinimapActive(true) }} onMouseMove={(e)=> { onMove(e); setMinimapActive(true) }} onMouseUp={()=> { onUp(); if (minimapTimerRef.current) window.clearTimeout(minimapTimerRef.current); minimapTimerRef.current = window.setTimeout(()=> setMinimapActive(false), 2000) }} onTouchStart={(e)=> { const t = (e.touches[0] || { clientX:0, clientY:0 }); onDown(e as any, t.clientX, t.clientY); setMinimapActive(true) }} onTouchMove={()=> { setMinimapActive(true) }} onTouchEnd={()=> { if (minimapTimerRef.current) window.clearTimeout(minimapTimerRef.current); minimapTimerRef.current = window.setTimeout(()=> setMinimapActive(false), 2000) }}>
               <rect x={0} y={0} width={mmW} height={mmH} rx={8} fill="#0b1220CC" stroke="#334155" />
               {/* Content frame */}
               <rect x={offX} y={offY} width={canvas.w * s} height={canvas.h * s} fill="#020617" stroke="#1f2937" />

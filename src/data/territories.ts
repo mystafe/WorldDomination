@@ -59,13 +59,13 @@ export const WORLD_MAP: MapDefinition = {
     { id: 'great_britain', name: 'Great Britain', continent: 'europe', neighbors: ['iceland', 'scandinavia', 'northern_europe', 'western_europe'], lat: 54, lon: -2 },
     { id: 'scandinavia', name: 'Scandinavia', continent: 'europe', neighbors: ['iceland', 'great_britain', 'northern_europe', 'ukraine'], lat: 62, lon: 15 },
     { id: 'northern_europe', name: 'Northern Europe', continent: 'europe', neighbors: ['great_britain', 'scandinavia', 'ukraine', 'southern_europe', 'western_europe'], lat: 52, lon: 10 },
-    { id: 'western_europe', name: 'Western Europe', continent: 'europe', neighbors: ['great_britain', 'northern_europe', 'southern_europe', 'north_africa'], lat: 47, lon: 2 },
-    { id: 'southern_europe', name: 'Southern Europe', continent: 'europe', neighbors: ['western_europe', 'northern_europe', 'ukraine', 'north_africa', 'egypt', 'middle_east'], lat: 42, lon: 15 },
+    { id: 'western_europe', name: 'Western Europe', continent: 'europe', neighbors: ['great_britain', 'northern_europe', 'turkey', 'north_africa'], lat: 47, lon: 2 },
+    { id: 'turkey', name: 'Türkiye', continent: 'europe', neighbors: ['western_europe', 'northern_europe', 'ukraine', 'north_africa', 'egypt', 'middle_east'], lat: 42, lon: 15 },
     { id: 'ukraine', name: 'Ukraine', continent: 'europe', neighbors: ['scandinavia', 'northern_europe', 'southern_europe', 'middle_east', 'afghanistan', 'ural'], lat: 49, lon: 32 },
     
     // Africa (6 territories)
-    { id: 'north_africa', name: 'North Africa', continent: 'africa', neighbors: ['brazil', 'western_europe', 'southern_europe', 'egypt', 'east_africa', 'congo'], lat: 20, lon: 10 },
-    { id: 'egypt', name: 'Egypt', continent: 'africa', neighbors: ['north_africa', 'southern_europe', 'middle_east', 'east_africa'], lat: 26, lon: 30 },
+    { id: 'north_africa', name: 'North Africa', continent: 'africa', neighbors: ['brazil', 'western_europe', 'turkey', 'egypt', 'east_africa', 'congo'], lat: 20, lon: 10 },
+    { id: 'egypt', name: 'Egypt', continent: 'africa', neighbors: ['north_africa', 'turkey', 'middle_east', 'east_africa'], lat: 26, lon: 30 },
     { id: 'east_africa', name: 'East Africa', continent: 'africa', neighbors: ['egypt', 'north_africa', 'congo', 'south_africa', 'madagascar', 'middle_east'], lat: 0, lon: 35 },
     { id: 'congo', name: 'Congo', continent: 'africa', neighbors: ['north_africa', 'east_africa', 'south_africa'], lat: -2, lon: 22 },
     { id: 'south_africa', name: 'South Africa', continent: 'africa', neighbors: ['congo', 'east_africa', 'madagascar'], lat: -28, lon: 25 },
@@ -81,7 +81,7 @@ export const WORLD_MAP: MapDefinition = {
     { id: 'japan', name: 'Japan', continent: 'asia', neighbors: ['mongolia', 'kamchatka'], lat: 36, lon: 138 },
     { id: 'afghanistan', name: 'Afghanistan', continent: 'asia', neighbors: ['ukraine', 'ural', 'china', 'india', 'middle_east'], lat: 33, lon: 65 },
     { id: 'china', name: 'China', continent: 'asia', neighbors: ['ural', 'siberia', 'mongolia', 'afghanistan', 'india', 'siam'], lat: 35, lon: 105 },
-    { id: 'middle_east', name: 'Middle East', continent: 'asia', neighbors: ['ukraine', 'southern_europe', 'egypt', 'east_africa', 'afghanistan', 'india'], lat: 29, lon: 48 },
+    { id: 'middle_east', name: 'Middle East', continent: 'asia', neighbors: ['ukraine', 'turkey', 'egypt', 'east_africa', 'afghanistan', 'india'], lat: 29, lon: 48 },
     { id: 'india', name: 'India', continent: 'asia', neighbors: ['middle_east', 'afghanistan', 'china', 'siam'], lat: 20, lon: 77 },
     { id: 'siam', name: 'Siam', continent: 'asia', neighbors: ['china', 'india', 'indonesia'], lat: 15, lon: 101 },
     
@@ -102,7 +102,7 @@ export const WORLD_MAP_MINI: MapDefinition = {
     { id: 'south_america', name: 'South America', bonus: 2, color: '#EF4444' },
     { id: 'europe', name: 'Europe', bonus: 4, color: '#3B82F6' },
     { id: 'africa', name: 'Africa', bonus: 3, color: '#8B5CF6' },
-    { id: 'asia', name: 'Asia', bonus: 6, color: '#10B981' },
+    { id: 'asia', name: 'Asia', bonus: 5, color: '#10B981' },
     { id: 'australia', name: 'Australia', bonus: 2, color: '#EC4899' }
   ],
   territories: [
@@ -110,45 +110,48 @@ export const WORLD_MAP_MINI: MapDefinition = {
     { id: 'alaska', name: 'Alaska', continent: 'north_america', neighbors: ['western_us', 'greenland', 'kamchatka'], lat: 64, lon: -153 },
     { id: 'western_us', name: 'Western United States', continent: 'north_america', neighbors: ['alaska', 'eastern_us', 'central_america'], lat: 40, lon: -110 },
     { id: 'eastern_us', name: 'Eastern United States', continent: 'north_america', neighbors: ['western_us', 'greenland', 'central_america'], lat: 38, lon: -80 },
-    { id: 'greenland', name: 'Greenland', continent: 'north_america', neighbors: ['eastern_us', 'alaska', 'iceland'], lat: 72, lon: -40 },
+    { id: 'greenland', name: 'Greenland', continent: 'north_america', neighbors: ['eastern_us', 'alaska'], lat: 72, lon: -40 },
     { id: 'central_america', name: 'Central America', continent: 'north_america', neighbors: ['western_us', 'eastern_us', 'venezuela'], lat: 15, lon: -90 },
     // South America (3)
     { id: 'venezuela', name: 'Venezuela', continent: 'south_america', neighbors: ['central_america', 'brazil'], lat: 8, lon: -66 },
     { id: 'brazil', name: 'Brazil', continent: 'south_america', neighbors: ['venezuela', 'argentina', 'north_africa'], lat: -10, lon: -52 },
     { id: 'argentina', name: 'Argentina', continent: 'south_america', neighbors: ['brazil'], lat: -34, lon: -64 },
     // Europe (5)
-    { id: 'iceland', name: 'Iceland', continent: 'europe', neighbors: ['greenland', 'great_britain'], lat: 65, lon: -18 },
-    { id: 'great_britain', name: 'Great Britain', continent: 'europe', neighbors: ['iceland', 'western_europe', 'northern_europe'], lat: 54, lon: -2 },
-    { id: 'western_europe', name: 'Western Europe', continent: 'europe', neighbors: ['great_britain', 'northern_europe', 'southern_europe', 'north_africa'], lat: 47, lon: 2 },
-    { id: 'northern_europe', name: 'Northern Europe', continent: 'europe', neighbors: ['great_britain', 'western_europe', 'southern_europe', 'ukraine'], lat: 52, lon: 10 },
-    { id: 'ukraine', name: 'Ukraine', continent: 'europe', neighbors: ['northern_europe', 'southern_europe', 'ural', 'middle_east'], lat: 49, lon: 32 },
-    { id: 'southern_europe', name: 'Southern Europe', continent: 'europe', neighbors: ['western_europe', 'northern_europe', 'middle_east', 'north_africa'], lat: 42, lon: 15 },
+    { id: 'great_britain', name: 'Great Britain', continent: 'europe', neighbors: ['western_europe'], lat: 54, lon: -2 },
+    { id: 'western_europe', name: 'Western Europe', continent: 'europe', neighbors: ['great_britain', 'turkey', 'north_africa'], lat: 47, lon: 2 },
+    { id: 'ukraine', name: 'Ukraine', continent: 'europe', neighbors: ['turkey', 'ural', 'middle_east'], lat: 49, lon: 32 },
+    { id: 'turkey', name: 'Türkiye', continent: 'europe', neighbors: ['western_europe', 'middle_east', 'north_africa', 'ukraine'], lat: 42, lon: 15 },
     // Africa (4)
-    { id: 'north_africa', name: 'North Africa', continent: 'africa', neighbors: ['western_europe', 'southern_europe', 'egypt', 'brazil'], lat: 20, lon: 10 },
+    { id: 'north_africa', name: 'North Africa', continent: 'africa', neighbors: ['western_europe', 'turkey', 'egypt', 'brazil'], lat: 20, lon: 10 },
     { id: 'egypt', name: 'Egypt', continent: 'africa', neighbors: ['north_africa', 'east_africa', 'southern_europe', 'middle_east'], lat: 26, lon: 30 },
     { id: 'east_africa', name: 'East Africa', continent: 'africa', neighbors: ['egypt', 'south_africa', 'middle_east'], lat: 0, lon: 35 },
     { id: 'south_africa', name: 'South Africa', continent: 'africa', neighbors: ['east_africa'], lat: -28, lon: 25 },
     // Asia (6-7)
     { id: 'ural', name: 'Ural', continent: 'asia', neighbors: ['ukraine', 'china'], lat: 60, lon: 60 },
     { id: 'china', name: 'China', continent: 'asia', neighbors: ['ural', 'mongolia', 'india', 'siam'], lat: 35, lon: 105 },
-    { id: 'mongolia', name: 'Mongolia', continent: 'asia', neighbors: ['china', 'japan', 'kamchatka'], lat: 46, lon: 105 },
-    { id: 'japan', name: 'Japan', continent: 'asia', neighbors: ['mongolia', 'kamchatka'], lat: 36, lon: 138 },
-    { id: 'kamchatka', name: 'Kamchatka', continent: 'asia', neighbors: ['mongolia', 'japan', 'alaska'], lat: 56, lon: 160 },
+    { id: 'mongolia', name: 'Mongolia', continent: 'asia', neighbors: ['china', 'kamchatka'], lat: 46, lon: 105 },
+    { id: 'kamchatka', name: 'Kamchatka', continent: 'asia', neighbors: ['mongolia', 'alaska'], lat: 56, lon: 160 },
     { id: 'india', name: 'India', continent: 'asia', neighbors: ['china', 'middle_east', 'siam'], lat: 20, lon: 77 },
-    { id: 'middle_east', name: 'Middle East', continent: 'asia', neighbors: ['southern_europe', 'ukraine', 'egypt', 'india'], lat: 29, lon: 48 },
+    { id: 'middle_east', name: 'Middle East', continent: 'asia', neighbors: ['turkey', 'ukraine', 'egypt', 'india'], lat: 29, lon: 48 },
     { id: 'siam', name: 'Siam', continent: 'asia', neighbors: ['china', 'india', 'indonesia'], lat: 15, lon: 101 },
-    // Australia (4)
-    { id: 'indonesia', name: 'Indonesia', continent: 'australia', neighbors: ['siam', 'new_guinea', 'western_australia'], lat: -2, lon: 118 },
-    { id: 'new_guinea', name: 'New Guinea', continent: 'australia', neighbors: ['indonesia', 'eastern_australia', 'western_australia'], lat: -6, lon: 147 },
-    { id: 'western_australia', name: 'Western Australia', continent: 'australia', neighbors: ['indonesia', 'new_guinea', 'eastern_australia'], lat: -25, lon: 122 },
-    { id: 'eastern_australia', name: 'Eastern Australia', continent: 'australia', neighbors: ['new_guinea', 'western_australia'], lat: -27, lon: 145 }
+    // Australia (2)
+    { id: 'indonesia', name: 'Indonesia', continent: 'australia', neighbors: ['siam', 'eastern_australia'], lat: -2, lon: 118 },
+    { id: 'eastern_australia', name: 'Eastern Australia', continent: 'australia', neighbors: ['indonesia'], lat: -27, lon: 145 }
   ]
+}
+
+// WORLD MAP - MIDI (reuse standard, approx 40 territories)
+export const WORLD_MAP_MIDI: MapDefinition = {
+  id: 'world_midi',
+  name: 'World',
+  continents: WORLD_MAP.continents,
+  territories: WORLD_MAP.territories
 }
 
 // TURKEY MAP
 export const TURKEY_MAP: MapDefinition = {
   id: 'turkey',
-  name: 'Turkey',
+  name: 'Türkiye',
   continents: [
     { id: 'marmara', name: 'Marmara', bonus: 3, color: '#3B82F6' },
     { id: 'aegean', name: 'Ege', bonus: 2, color: '#10B981' },
@@ -261,7 +264,7 @@ export const TURKEY_MAP: MapDefinition = {
 // TURKEY MAP - MINI (≈28 territories)
 export const TURKEY_MAP_MINI: MapDefinition = {
   id: 'turkey_mini',
-  name: 'Turkey',
+  name: 'Türkiye',
   continents: [
     { id: 'marmara', name: 'Marmara', bonus: 3, color: '#3B82F6' },
     { id: 'aegean', name: 'Ege', bonus: 2, color: '#10B981' },
@@ -274,48 +277,115 @@ export const TURKEY_MAP_MINI: MapDefinition = {
   territories: [
     // Marmara (5)
     { id: 'istanbul', name: 'İstanbul', continent: 'marmara', neighbors: ['kocaeli', 'tekirdag', 'bursa'], lat: 41.02, lon: 28.97 },
-    { id: 'tekirdag', name: 'Tekirdağ', continent: 'marmara', neighbors: ['istanbul'], lat: 40.98, lon: 27.51 },
+    { id: 'tekirdag', name: 'Tekirdağ', continent: 'marmara', neighbors: ['istanbul', 'balikesir'], lat: 40.98, lon: 27.51 },
     { id: 'kocaeli', name: 'Kocaeli', continent: 'marmara', neighbors: ['istanbul', 'bursa'], lat: 40.76, lon: 29.94 },
-    { id: 'bursa', name: 'Bursa', continent: 'marmara', neighbors: ['istanbul', 'kocaeli', 'balikesir', 'eskisehir'], lat: 40.18, lon: 29.06 },
-    { id: 'balikesir', name: 'Balıkesir', continent: 'marmara', neighbors: ['bursa', 'manisa', 'izmir'], lat: 39.65, lon: 27.88 },
+    { id: 'bursa', name: 'Bursa', continent: 'marmara', neighbors: ['istanbul', 'kocaeli', 'balikesir'], lat: 40.18, lon: 29.06 },
+    { id: 'balikesir', name: 'Balıkesir', continent: 'marmara', neighbors: ['bursa', 'izmir', 'tekirdag'], lat: 39.65, lon: 27.88 },
     
-    // Aegean (5)
-    { id: 'izmir', name: 'İzmir', continent: 'aegean', neighbors: ['balikesir', 'manisa', 'aydin'], lat: 38.42, lon: 27.14 },
-    { id: 'manisa', name: 'Manisa', continent: 'aegean', neighbors: ['balikesir', 'izmir', 'aydin', 'afyon'], lat: 38.61, lon: 27.43 },
-    { id: 'aydin', name: 'Aydın', continent: 'aegean', neighbors: ['izmir', 'manisa', 'mugla', 'afyon'], lat: 37.85, lon: 27.84 },
+    // Aegean (4)
+    { id: 'izmir', name: 'İzmir', continent: 'aegean', neighbors: ['balikesir', 'aydin'], lat: 38.42, lon: 27.14 },
+    { id: 'aydin', name: 'Aydın', continent: 'aegean', neighbors: ['izmir', 'afyon', 'antalya'], lat: 37.85, lon: 27.84 },
     { id: 'mugla', name: 'Muğla', continent: 'aegean', neighbors: ['aydin', 'antalya'], lat: 37.21, lon: 28.36 },
-    { id: 'afyon', name: 'Afyon', continent: 'aegean', neighbors: ['manisa', 'aydin', 'eskisehir', 'konya'], lat: 38.76, lon: 30.54 },
+    { id: 'afyon', name: 'Afyon', continent: 'aegean', neighbors: ['aydin', 'eskisehir', 'konya'], lat: 38.76, lon: 30.54 },
     
     // Mediterranean (3)
-    { id: 'antalya', name: 'Antalya', continent: 'mediterranean', neighbors: ['mugla', 'konya', 'mersin'], lat: 36.90, lon: 30.71 },
+    { id: 'antalya', name: 'Antalya', continent: 'mediterranean', neighbors: ['aydin', 'konya', 'mersin'], lat: 36.90, lon: 30.71 },
     { id: 'mersin', name: 'Mersin', continent: 'mediterranean', neighbors: ['antalya', 'konya', 'adana'], lat: 36.81, lon: 34.64 },
     { id: 'adana', name: 'Adana', continent: 'mediterranean', neighbors: ['mersin', 'kayseri', 'gaziantep'], lat: 37.00, lon: 35.32 },
     
     // Central Anatolia (4)
-    { id: 'ankara', name: 'Ankara', continent: 'central_anatolia', neighbors: ['bolu', 'eskisehir', 'konya'], lat: 39.93, lon: 32.85 },
-    { id: 'konya', name: 'Konya', continent: 'central_anatolia', neighbors: ['ankara', 'eskisehir', 'afyon', 'antalya', 'mersin'], lat: 37.87, lon: 32.48 },
-    { id: 'eskisehir', name: 'Eskişehir', continent: 'central_anatolia', neighbors: ['bursa', 'afyon', 'konya', 'ankara'], lat: 39.77, lon: 30.52 },
-    { id: 'kayseri', name: 'Kayseri', continent: 'central_anatolia', neighbors: ['adana', 'malatya'], lat: 38.73, lon: 35.48 },
+    { id: 'ankara', name: 'Ankara', continent: 'central_anatolia', neighbors: ['bolu', 'konya'], lat: 39.93, lon: 32.85 },
+    { id: 'konya', name: 'Konya', continent: 'central_anatolia', neighbors: ['ankara', 'afyon', 'antalya', 'mersin', 'kayseri'], lat: 37.87, lon: 32.48 },
+    { id: 'kayseri', name: 'Kayseri', continent: 'central_anatolia', neighbors: ['adana', 'malatya', 'corum', 'konya'], lat: 38.73, lon: 35.48 },
     
-    // Black Sea (4)
+    // Black Sea (5)
     { id: 'bolu', name: 'Bolu', continent: 'black_sea', neighbors: ['ankara', 'corum'], lat: 40.74, lon: 31.61 },
-    { id: 'corum', name: 'Çorum', continent: 'black_sea', neighbors: ['ankara', 'samsun', 'bolu'], lat: 40.55, lon: 34.95 },
+    { id: 'corum', name: 'Çorum', continent: 'black_sea', neighbors: ['ankara', 'samsun', 'bolu', 'kayseri'], lat: 40.55, lon: 34.95 },
     { id: 'samsun', name: 'Samsun', continent: 'black_sea', neighbors: ['corum', 'ordu', 'ankara'], lat: 41.29, lon: 36.33 },
-    { id: 'ordu', name: 'Ordu', continent: 'black_sea', neighbors: ['samsun', 'erzincan'], lat: 40.98, lon: 37.88 },
+    { id: 'ordu', name: 'Ordu', continent: 'black_sea', neighbors: ['samsun', 'erzincan', 'trabzon'], lat: 40.98, lon: 37.88 },
+    { id: 'trabzon', name: 'Trabzon', continent: 'black_sea', neighbors: ['ordu', 'erzincan'], lat: 41.00, lon: 39.72 },
     
     // Eastern Anatolia (4)
     { id: 'malatya', name: 'Malatya', continent: 'eastern_anatolia', neighbors: ['kayseri', 'erzincan', 'diyarbakir'], lat: 38.35, lon: 38.31 },
-    { id: 'erzincan', name: 'Erzincan', continent: 'eastern_anatolia', neighbors: ['malatya', 'erzurum'], lat: 39.75, lon: 39.49 },
+    { id: 'erzincan', name: 'Erzincan', continent: 'eastern_anatolia', neighbors: ['malatya', 'erzurum', 'ordu', 'trabzon'], lat: 39.75, lon: 39.49 },
     { id: 'erzurum', name: 'Erzurum', continent: 'eastern_anatolia', neighbors: ['erzincan', 'van'], lat: 39.90, lon: 41.27 },
     { id: 'van', name: 'Van', continent: 'eastern_anatolia', neighbors: ['erzurum', 'diyarbakir'], lat: 38.49, lon: 43.38 },
     
     // Southeastern Anatolia (3)
-    { id: 'gaziantep', name: 'Gaziantep', continent: 'southeastern_anatolia', neighbors: ['adana', 'sanliurfa'], lat: 37.06, lon: 37.38 },
-    { id: 'sanliurfa', name: 'Şanlıurfa', continent: 'southeastern_anatolia', neighbors: ['gaziantep', 'diyarbakir'], lat: 37.16, lon: 38.79 },
-    { id: 'diyarbakir', name: 'Diyarbakır', continent: 'southeastern_anatolia', neighbors: ['sanliurfa', 'malatya', 'van'], lat: 37.91, lon: 40.23 }
+    { id: 'gaziantep', name: 'Gaziantep', continent: 'southeastern_anatolia', neighbors: ['adana', 'diyarbakir'], lat: 37.06, lon: 37.38 },
+    { id: 'diyarbakir', name: 'Diyarbakır', continent: 'southeastern_anatolia', neighbors: ['gaziantep', 'malatya', 'van'], lat: 37.91, lon: 40.23 }
   ]
 }
 
+// TURKEY MAP - MIDI (~40 territories)
+export const TURKEY_MAP_MIDI: MapDefinition = {
+  id: 'turkey_midi',
+  name: 'Türkiye',
+  continents: [
+    { id: 'marmara', name: 'Marmara', bonus: 3, color: '#3B82F6' },
+    { id: 'aegean', name: 'Ege', bonus: 2, color: '#10B981' },
+    { id: 'mediterranean', name: 'Akdeniz', bonus: 2, color: '#F59E0B' },
+    { id: 'central_anatolia', name: 'İç Anadolu', bonus: 3, color: '#8B5CF6' },
+    { id: 'black_sea', name: 'Karadeniz', bonus: 2, color: '#6B7280' },
+    { id: 'eastern_anatolia', name: 'Doğu Anadolu', bonus: 3, color: '#EF4444' },
+    { id: 'southeastern_anatolia', name: 'Güneydoğu Anadolu', bonus: 2, color: '#EC4899' }
+  ],
+  territories: [
+    // Marmara (6)
+    { id: 'istanbul', name: 'İstanbul', continent: 'marmara', neighbors: ['kocaeli', 'tekirdag', 'bursa'], lat: 41.02, lon: 28.97 },
+    { id: 'tekirdag', name: 'Tekirdağ', continent: 'marmara', neighbors: ['istanbul', 'balikesir'], lat: 40.98, lon: 27.51 },
+    { id: 'kocaeli', name: 'Kocaeli', continent: 'marmara', neighbors: ['istanbul', 'bursa', 'sakarya'], lat: 40.76, lon: 29.94 },
+    { id: 'bursa', name: 'Bursa', continent: 'marmara', neighbors: ['istanbul', 'kocaeli', 'balikesir', 'eskisehir'], lat: 40.18, lon: 29.06 },
+    { id: 'balikesir', name: 'Balıkesir', continent: 'marmara', neighbors: ['bursa', 'manisa', 'izmir', 'tekirdag'], lat: 39.65, lon: 27.88 },
+    { id: 'sakarya', name: 'Sakarya', continent: 'marmara', neighbors: ['kocaeli', 'bolu'], lat: 40.77, lon: 30.40 },
+    
+    // Aegean (6)
+    { id: 'izmir', name: 'İzmir', continent: 'aegean', neighbors: ['balikesir', 'manisa', 'aydin'], lat: 38.42, lon: 27.14 },
+    { id: 'manisa', name: 'Manisa', continent: 'aegean', neighbors: ['balikesir', 'izmir', 'aydin', 'afyon'], lat: 38.61, lon: 27.43 },
+    { id: 'aydin', name: 'Aydın', continent: 'aegean', neighbors: ['izmir', 'manisa', 'denizli', 'afyon', 'antalya'], lat: 37.85, lon: 27.84 },
+    { id: 'denizli', name: 'Denizli', continent: 'aegean', neighbors: ['aydin', 'afyon'], lat: 37.77, lon: 29.08 },
+    { id: 'afyon', name: 'Afyon', continent: 'aegean', neighbors: ['manisa', 'aydin', 'denizli', 'isparta', 'burdur', 'konya', 'eskisehir', 'usak'], lat: 38.76, lon: 30.54 },
+    { id: 'usak', name: 'Uşak', continent: 'aegean', neighbors: ['manisa', 'denizli', 'afyon'], lat: 38.68, lon: 29.40 },
+    
+    // Mediterranean (3)
+    { id: 'antalya', name: 'Antalya', continent: 'mediterranean', neighbors: ['aydin', 'isparta', 'konya', 'mersin'], lat: 36.90, lon: 30.71 },
+    { id: 'mersin', name: 'Mersin', continent: 'mediterranean', neighbors: ['antalya', 'konya', 'adana', 'karaman'], lat: 36.81, lon: 34.64 },
+    { id: 'adana', name: 'Adana', continent: 'mediterranean', neighbors: ['mersin', 'kayseri', 'gaziantep'], lat: 37.00, lon: 35.32 },
+    
+    // Central Anatolia (9)
+    { id: 'ankara', name: 'Ankara', continent: 'central_anatolia', neighbors: ['bolu', 'eskisehir', 'konya', 'aksaray'], lat: 39.93, lon: 32.85 },
+    { id: 'konya', name: 'Konya', continent: 'central_anatolia', neighbors: ['ankara', 'afyon', 'antalya', 'mersin', 'kayseri', 'isparta', 'karaman', 'aksaray'], lat: 37.87, lon: 32.48 },
+    { id: 'eskisehir', name: 'Eskişehir', continent: 'central_anatolia', neighbors: ['bursa', 'afyon', 'konya', 'ankara'], lat: 39.77, lon: 30.52 },
+    { id: 'aksaray', name: 'Aksaray', continent: 'central_anatolia', neighbors: ['ankara', 'konya', 'nigde', 'karaman'], lat: 38.37, lon: 34.03 },
+    { id: 'karaman', name: 'Karaman', continent: 'central_anatolia', neighbors: ['konya', 'mersin', 'nigde', 'aksaray'], lat: 37.18, lon: 33.21 },
+    { id: 'isparta', name: 'Isparta', continent: 'central_anatolia', neighbors: ['antalya', 'konya', 'afyon', 'burdur'], lat: 37.76, lon: 30.55 },
+    { id: 'burdur', name: 'Burdur', continent: 'central_anatolia', neighbors: ['antalya', 'isparta', 'afyon', 'denizli'], lat: 37.72, lon: 30.29 },
+    { id: 'nigde', name: 'Niğde', continent: 'central_anatolia', neighbors: ['aksaray', 'kayseri', 'adana', 'konya'], lat: 37.97, lon: 34.69 },
+    { id: 'kayseri', name: 'Kayseri', continent: 'central_anatolia', neighbors: ['nigde', 'adana', 'malatya', 'konya', 'corum'], lat: 38.73, lon: 35.48 },
+    
+    // Black Sea (8)
+    { id: 'bolu', name: 'Bolu', continent: 'black_sea', neighbors: ['sakarya', 'ankara', 'corum'], lat: 40.74, lon: 31.61 },
+    { id: 'corum', name: 'Çorum', continent: 'black_sea', neighbors: ['ankara', 'samsun', 'bolu', 'kayseri'], lat: 40.55, lon: 34.95 },
+    { id: 'samsun', name: 'Samsun', continent: 'black_sea', neighbors: ['corum', 'ordu'], lat: 41.29, lon: 36.33 },
+    { id: 'ordu', name: 'Ordu', continent: 'black_sea', neighbors: ['samsun', 'giresun', 'erzincan'], lat: 40.98, lon: 37.88 },
+    { id: 'giresun', name: 'Giresun', continent: 'black_sea', neighbors: ['ordu', 'trabzon', 'erzincan'], lat: 40.91, lon: 38.39 },
+    { id: 'trabzon', name: 'Trabzon', continent: 'black_sea', neighbors: ['giresun', 'rize', 'bayburt'], lat: 41.00, lon: 39.72 },
+    { id: 'rize', name: 'Rize', continent: 'black_sea', neighbors: ['trabzon', 'erzurum', 'artvin'], lat: 41.02, lon: 40.52 },
+    { id: 'artvin', name: 'Artvin', continent: 'black_sea', neighbors: ['rize', 'kars'], lat: 41.18, lon: 41.82 },
+    
+    // Eastern Anatolia (6)
+    { id: 'erzincan', name: 'Erzincan', continent: 'eastern_anatolia', neighbors: ['giresun', 'bayburt', 'erzurum', 'malatya', 'ordu'], lat: 39.75, lon: 39.49 },
+    { id: 'bayburt', name: 'Bayburt', continent: 'eastern_anatolia', neighbors: ['trabzon', 'erzurum', 'erzincan'], lat: 40.26, lon: 40.23 },
+    { id: 'erzurum', name: 'Erzurum', continent: 'eastern_anatolia', neighbors: ['rize', 'bayburt', 'erzincan', 'kars', 'van'], lat: 39.90, lon: 41.27 },
+    { id: 'malatya', name: 'Malatya', continent: 'eastern_anatolia', neighbors: ['kayseri', 'erzincan', 'diyarbakir'], lat: 38.35, lon: 38.31 },
+    { id: 'van', name: 'Van', continent: 'eastern_anatolia', neighbors: ['erzurum', 'diyarbakir'], lat: 38.49, lon: 43.38 },
+    { id: 'kars', name: 'Kars', continent: 'eastern_anatolia', neighbors: ['erzurum', 'artvin'], lat: 40.59, lon: 43.10 },
+    
+    // Southeastern Anatolia (2)
+    { id: 'gaziantep', name: 'Gaziantep', continent: 'southeastern_anatolia', neighbors: ['adana', 'diyarbakir'], lat: 37.06, lon: 37.38 },
+    { id: 'diyarbakir', name: 'Diyarbakır', continent: 'southeastern_anatolia', neighbors: ['gaziantep', 'malatya', 'van'], lat: 37.91, lon: 40.23 }
+  ]
+}
 // EUROPE MAP
 export const EUROPE_MAP: MapDefinition = {
   id: 'europe',
@@ -341,7 +411,7 @@ export const EUROPE_MAP: MapDefinition = {
     // Southern Europe
     { id: 'italy', name: 'Italy', continent: 'southern_europe', neighbors: ['france', 'switzerland', 'austria', 'slovenia'], lat: 41.9, lon: 12.6 },
     { id: 'greece', name: 'Greece', continent: 'southern_europe', neighbors: ['albania', 'north_macedonia', 'bulgaria', 'turkey'], lat: 39.1, lon: 21.8 },
-    { id: 'turkey', name: 'Turkey', continent: 'southern_europe', neighbors: ['greece', 'bulgaria'], lat: 39.0, lon: 35.0 },
+    { id: 'turkey', name: 'Türkiye', continent: 'southern_europe', neighbors: ['greece', 'bulgaria'], lat: 39.0, lon: 35.0 },
     
     // Northern Europe
     { id: 'uk', name: 'United Kingdom', continent: 'northern_europe', neighbors: ['ireland', 'iceland'], lat: 55.4, lon: -3.4 },
@@ -384,18 +454,17 @@ export const EUROPE_MAP_MINI: MapDefinition = {
   id: 'europe_mini',
   name: 'Europe',
   continents: [
-    { id: 'western_europe', name: 'Western Europe', bonus: 3, color: '#3B82F6' },
+    { id: 'western_europe', name: 'Western Europe', bonus: 4, color: '#3B82F6' },
     { id: 'southern_europe', name: 'Southern Europe', bonus: 3, color: '#F59E0B' },
     { id: 'northern_europe', name: 'Northern Europe', bonus: 3, color: '#10B981' },
-    { id: 'eastern_europe', name: 'Eastern Europe', bonus: 3, color: '#8B5CF6' },
+    { id: 'eastern_europe', name: 'Eastern Europe', bonus: 4, color: '#8B5CF6' },
     { id: 'balkans', name: 'Balkans', bonus: 2, color: '#EF4444' }
   ],
   territories: [
     // West
     { id: 'spain', name: 'Spain', continent: 'western_europe', neighbors: ['france'], lat: 40.5, lon: -3.7 },
-    { id: 'france', name: 'France', continent: 'western_europe', neighbors: ['spain', 'germany', 'italy'], lat: 46.2, lon: 2.2 },
-    { id: 'germany', name: 'Germany', continent: 'western_europe', neighbors: ['france', 'poland', 'czech_republic', 'netherlands'], lat: 51.2, lon: 10.5 },
-    { id: 'netherlands', name: 'Netherlands', continent: 'western_europe', neighbors: ['germany'], lat: 52.1, lon: 5.3 },
+    { id: 'france', name: 'France', continent: 'western_europe', neighbors: ['spain', 'germany', 'italy', 'uk'], lat: 46.2, lon: 2.2 },
+    { id: 'germany', name: 'Germany', continent: 'western_europe', neighbors: ['france', 'poland', 'czech_republic', 'italy'], lat: 51.2, lon: 10.5 },
     // North
     { id: 'uk', name: 'United Kingdom', continent: 'northern_europe', neighbors: ['norway', 'france'], lat: 55.4, lon: -3.4 },
     { id: 'norway', name: 'Norway', continent: 'northern_europe', neighbors: ['uk', 'sweden'], lat: 60.5, lon: 8.5 },
@@ -407,17 +476,30 @@ export const EUROPE_MAP_MINI: MapDefinition = {
     { id: 'russia', name: 'Russia', continent: 'eastern_europe', neighbors: ['finland', 'ukraine'], lat: 61.5, lon: 35.2433 },
     { id: 'czech_republic', name: 'Czech Republic', continent: 'eastern_europe', neighbors: ['germany', 'poland'], lat: 49.8, lon: 15.5 },
     // South/Balkans
-    { id: 'italy', name: 'Italy', continent: 'southern_europe', neighbors: ['france', 'slovenia', 'greece'], lat: 41.9, lon: 12.6 },
+    { id: 'italy', name: 'Italy', continent: 'southern_europe', neighbors: ['france', 'slovenia', 'greece', 'germany'], lat: 41.9, lon: 12.6 },
     { id: 'slovenia', name: 'Slovenia', continent: 'balkans', neighbors: ['italy', 'croatia', 'hungary'], lat: 46.2, lon: 14.9 },
     { id: 'croatia', name: 'Croatia', continent: 'balkans', neighbors: ['slovenia', 'serbia'], lat: 45.1, lon: 15.2 },
-    { id: 'serbia', name: 'Serbia', continent: 'balkans', neighbors: ['croatia', 'romania', 'bulgaria'], lat: 44.0, lon: 21.0 },
+    { id: 'serbia', name: 'Serbia', continent: 'balkans', neighbors: ['croatia', 'romania', 'bulgaria', 'greece'], lat: 44.0, lon: 21.0 },
     { id: 'romania', name: 'Romania', continent: 'eastern_europe', neighbors: ['serbia', 'ukraine', 'bulgaria'], lat: 45.9, lon: 24.9 },
     { id: 'bulgaria', name: 'Bulgaria', continent: 'balkans', neighbors: ['serbia', 'romania', 'greece'], lat: 42.7, lon: 25.5 },
-    { id: 'greece', name: 'Greece', continent: 'southern_europe', neighbors: ['bulgaria', 'italy'], lat: 39.1, lon: 21.8 }
+    { id: 'greece', name: 'Greece', continent: 'southern_europe', neighbors: ['bulgaria', 'italy', 'serbia', 'turkey'], lat: 39.1, lon: 21.8 },
+    { id: 'turkey', name: 'Türkiye', continent: 'southern_europe', neighbors: ['greece', 'bulgaria'], lat: 39.0, lon: 35.0 }
   ]
 }
 
-export const ALL_MAPS: MapDefinition[] = [WORLD_MAP, WORLD_MAP_MINI, TURKEY_MAP, TURKEY_MAP_MINI, EUROPE_MAP, EUROPE_MAP_MINI]
+// EUROPE MAP - MIDI (reuse standard)
+export const EUROPE_MAP_MIDI: MapDefinition = {
+  id: 'europe_midi',
+  name: 'Europe',
+  continents: EUROPE_MAP.continents,
+  territories: EUROPE_MAP.territories
+}
+
+export const ALL_MAPS: MapDefinition[] = [
+  WORLD_MAP, WORLD_MAP_MINI, WORLD_MAP_MIDI,
+  TURKEY_MAP, TURKEY_MAP_MINI, TURKEY_MAP_MIDI,
+  EUROPE_MAP, EUROPE_MAP_MINI, EUROPE_MAP_MIDI
+]
 
 export function getMapById(id: string): MapDefinition | undefined {
   return ALL_MAPS.find(m => m.id === id)

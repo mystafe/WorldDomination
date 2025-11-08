@@ -34,7 +34,7 @@ export interface GameSettings {
   lowEffects?: boolean
   colorblindMode?: boolean
   sfx?: boolean
-  mapVariant?: 'standard' | 'mini'
+  mapVariant?: 'standard' | 'mini' | 'midi'
 }
 
 export interface GameState {
@@ -343,7 +343,10 @@ export const useGameStore = create<GameState>((set, get) => ({
   setMap: (mapId) => {
     const variant = get().settings.mapVariant || 'standard'
     let targetId: string = mapId
-    if (variant === 'mini') {
+    if (variant === 'midi') {
+      const alt = `${mapId}_midi`
+      if (getMapById(alt)) targetId = alt
+    } else if (variant === 'mini') {
       const alt = `${mapId}_mini`
       if (getMapById(alt)) targetId = alt
     }

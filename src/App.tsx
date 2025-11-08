@@ -24,6 +24,7 @@ function App() {
   const [searchTerm, setSearchTerm] = useState('')
   const [focusId, setFocusId] = useState<string | null>(null)
   const [showOnboarding, setShowOnboarding] = useState(false)
+  const [battleBanner, setBattleBanner] = useState<{ a: number; d: number; conquered?: boolean } | null>(null)
 
   useEffect(() => {
     const chk = () => setIsMobile(typeof window !== 'undefined' && window.innerWidth < 768)
@@ -31,11 +32,11 @@ function App() {
     window.addEventListener('resize', chk)
     return () => window.removeEventListener('resize', chk)
   }, [])
-  const mapHeightClass = isMobile ? 'h-[55vh]' : 'h-[90vh]'
+  const mapHeightClass = isMobile ? 'h-[82vh]' : 'h-[90vh]'
   useEffect(() => {
-    // Background music on landing
+    // Background music only during game
     try {
-      if (!setupComplete) {
+      if (setupComplete) {
         if (!audioRef.current) {
           audioRef.current = new Audio('/assets/champions.mp3')
           audioRef.current.loop = true
@@ -188,7 +189,7 @@ function App() {
         setupTitle: "Game Setup",
         selectMap: "Select Map",
         world: "World",
-        turkey: "Turkey",
+        turkey: "Türkiye",
         europe: "Europe",
         playerCount: "Player Count",
         humanPlayers: "Human Players",
@@ -296,6 +297,9 @@ function App() {
   useEffect(() => {
     if (!lastBattleResult) return
     playSfx(lastBattleResult.conquered ? 'conquer' : 'attack')
+    setBattleBanner({ a: lastBattleResult.attackerLosses || 0, d: lastBattleResult.defenderLosses || 0, conquered: !!lastBattleResult.conquered })
+    const t = setTimeout(() => setBattleBanner(null), lastBattleResult.conquered ? 1600 : 1200)
+    return () => clearTimeout(t)
   }, [lastBattleResult])
   
   const suggestedTerritoryId = useMemo(() => {
@@ -412,9 +416,9 @@ function App() {
         />
         {/* Top bar actions */}
         <div className="absolute top-4 left-0 right-0 px-4">
-          <div className="max-w-2xl mx-auto flex items-center justify-between">
+          <div className="max-w-xl mx-auto flex items-center justify-between">
             <div className="text-slate-400 text-xs">
-              {config.language === 'tr' ? 'Sürüm' : 'Version'} 1.0.2
+              {config.language === 'tr' ? 'Sürüm' : 'Version'} 1.1.2
             </div>
             <div className="flex items-center gap-2">
               <div className="bg-slate-800/60 border border-slate-700/60 rounded-xl p-1">
@@ -455,28 +459,29 @@ function App() {
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="max-w-2xl w-full"
+          className="max-w-xl w-full"
         >
           <div className="text-center mb-8">
+            <img src="/logos/logo.svg" alt="World Domination" className="mx-auto mb-2" style={{ width: isMobile ? 40 : 56, height: isMobile ? 40 : 56 }} />
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-xs mb-3 animate-fade-in-up">
               🌍 {config.language==='tr' ? 'Strateji • Çok oyunculu • Yapay Zekâ' : 'Strategy • Multiplayer • AI'}
             </div>
-            <h1 className="text-5xl font-extrabold gradient-text tracking-tight mb-2">{tr('title')}</h1>
-            <p className="text-slate-300 text-lg">{tr('setupTitle')}</p>
+            <h1 className="text-4xl font-extrabold gradient-text tracking-tight mb-1">{tr('title')}</h1>
+            <p className="text-slate-300 text-base">{tr('setupTitle')}</p>
           </div>
           
-          <div className="bg-slate-800/50 backdrop-blur-xl rounded-2xl border border-slate-700/50 p-8 space-y-6 card">
+          <div className="bg-slate-800/50 backdrop-blur-xl rounded-2xl border border-slate-700/50 p-6 space-y-5 card">
             {/* Map Selection */}
             <div>
               <label className="block text-sm font-semibold text-emerald-300 mb-3 uppercase tracking-wide">
                 🗺️ {tr('selectMap')}
               </label>
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-3 gap-2">
                 {(['world', 'turkey', 'europe'] as const).map((mapId) => (
                   <button
                     key={mapId}
                     onClick={() => handleMapChange(mapId)}
-                    className={`px-4 py-3 rounded-xl font-medium transition-all ${
+                    className={`px-3 py-2.5 rounded-xl text-sm font-medium transition-all ${
                       config.selectedMap === mapId
                         ? 'bg-emerald-500 text-white shadow-lg scale-105'
                         : 'bg-slate-700/50 text-slate-300 hover:bg-slate-700'
@@ -492,14 +497,20 @@ function App() {
                 <select
                   value={config.mapVariant || 'standard'}
                   onChange={(e)=> applySetting('mapVariant', e.target.value as any)}
-                  className="w-full rounded-md bg-slate-800/70 border border-slate-600/50 px-3 py-2 text-white"
+                  className="w-full rounded-md bg-slate-800/70 border border-slate-600/50 px-3 py-2 text-white text-sm"
                 >
                   <option value="standard">{config.language==='tr' ? 'Standart' : 'Standard'}</option>
                   <option value="mini">{config.language==='tr' ? 'Mini (daha az bölge)' : 'Mini (fewer territories)'}</option>
+                  <option value="midi">{config.language==='tr' ? 'Midi (orta ölçek)' : 'Midi (medium scale)'}</option>
                 </select>
                 {config.selectedMap==='turkey' && (config.mapVariant==='mini') && (
                   <div className="text-xs text-slate-500 mt-1">
-                    {config.language==='tr' ? 'Türkiye mini: ~28 bölge' : 'Turkey mini: ~28 territories'}
+                    {config.language==='tr' ? 'Türkiye mini: 25 bölge' : 'Turkey mini: 25 territories'}
+                  </div>
+                )}
+                {config.selectedMap==='turkey' && (config.mapVariant==='midi') && (
+                  <div className="text-xs text-slate-500 mt-1">
+                    {config.language==='tr' ? 'Türkiye midi: 40 bölge' : 'Turkey midi: 40 territories'}
                   </div>
                 )}
               </div>
@@ -742,7 +753,16 @@ function App() {
         {/* Header */}
         <div className="bg-slate-800/50 backdrop-blur-xl rounded-2xl border border-slate-700/50 p-4 mb-4">
           <div className="flex justify-between items-center">
-            <div>
+            <div className="flex items-center gap-3">
+              <div
+                aria-hidden
+                className="w-8 h-8 rounded-xl grid place-items-center shadow-lg"
+                style={{
+                  background: `linear-gradient(135deg, ${(currentPlayer?.color || '#10B981')} 0%, #3B82F6 100%)`
+                }}
+              >
+                <span className="text-xs font-extrabold text-white">WD</span>
+              </div>
               <h1
                 className="text-2xl font-bold text-white cursor-pointer hover:underline"
                 onClick={() => {
@@ -753,9 +773,22 @@ function App() {
               >
                 {tr('title')}
               </h1>
-              <p className="text-slate-400">
-                {getMapById(selectedMap)?.name} • {tr('turn')} {turn}
-              </p>
+              <div className="flex items-center gap-2">
+                <p className="text-slate-400">
+                  {getMapById(selectedMap)?.name} • {tr('turn')} {turn}
+                </p>
+                {/* Phase chip */}
+                <span
+                  className="text-xs px-2.5 py-1 rounded-xl shadow border backdrop-blur"
+                  style={{
+                    borderColor: (currentPlayer?.color || '#64748b') + '66',
+                    background: `linear-gradient(135deg, ${(currentPlayer?.color || '#64748b')}22, #0b1220aa)`,
+                    color: currentPlayer?.color || '#94a3b8'
+                  }}
+                >
+                  {phase === 'placement' ? '🧭 ' + tr('reinforcementPhase') : phase === 'draft' ? '➕ ' + tr('draftPhase') : phase === 'attack' ? '⚔️ ' + tr('attackPhase') : '🛡️ ' + tr('fortifyPhase')}
+                </span>
+              </div>
             </div>
 
             {currentPlayer && (
@@ -858,6 +891,24 @@ function App() {
               )}
               
               <div className={`relative ${mapHeightClass}`}>
+              {/* Battle banner overlay */}
+              {battleBanner && (
+                <motion.div
+                  initial={{ opacity: 0, y: -12, scale: 0.98 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  className="pointer-events-none absolute inset-x-0 top-2 mx-auto w-max"
+                >
+                  <div className="px-3 py-1.5 rounded-xl bg-slate-900/80 border border-slate-700/60 shadow-xl text-sm flex items-center gap-3">
+                    <span className="text-red-300">⚔️ -{battleBanner.a}</span>
+                    <span className="text-slate-600">|</span>
+                    <span className="text-blue-300">🛡️ -{battleBanner.d}</span>
+                    {battleBanner.conquered && (
+                      <span className="ml-1 text-emerald-300 font-semibold">✓ {config.language==='tr' ? 'Fethedildi' : 'Conquered'}</span>
+                    )}
+                  </div>
+                </motion.div>
+              )}
               
               {mapDefinition ? (
                 territories.length > 0 ? (
