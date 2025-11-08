@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import { feature } from "topojson-client"
 import { Delaunay } from "d3-delaunay"
+import { polygonHull } from "d3-polygon"
 import { geoMercator, geoNaturalEarth1, geoPath, geoBounds } from "d3-geo"
 import world110 from "world-atlas/countries-110m.json" with { type: "json" }
 import type { MapDefinition } from "../data/territories"
@@ -116,8 +117,8 @@ export default function RealMap({ mapId, mapDefinition, territories, players, se
 
     const mobile = typeof window !== 'undefined' && window.innerWidth < 768
     const canvas = mapId === 'world'
-      ? (mobile ? { w: 1100, h: 360 } : { w: 1000, h: 600 })
-      : (mobile ? { w: 1100, h: 420 } : { w: 900, h: 600 })
+      ? (mobile ? { w: 1100, h: 300 } : { w: 1000, h: 560 })
+      : (mobile ? { w: 1100, h: 360 } : { w: 900, h: 560 })
 
     let projection = (mapId === 'world' ? geoNaturalEarth1() : geoMercator()).fitSize([canvas.w, canvas.h], (mapId === 'world' ? (f as any) : (f as any)))
     if (mapId === 'europe') {
@@ -133,12 +134,30 @@ export default function RealMap({ mapId, mapDefinition, territories, players, se
 
   // Precompute Voronoi regions for territory coloring
   const voronoiData = useMemo(() => {
+    const idToTerr = new Map(mapDefinition.territories.map(t => [t.id, t]))
     const pts: Array<{ id: string; x: number; y: number }> = []
+    // First pass: add those with explicit coords
     for (const t of mapDefinition.territories) {
-      if (t.lon == null || t.lat == null) continue
-      const p = projection([t.lon, t.lat]) as [number, number]
-      if (!p) continue
-      pts.push({ id: t.id, x: p[0], y: p[1] })
+      if (t.lon != null && t.lat != null) {
+        const p = projection([t.lon, t.lat]) as [number, number]
+        if (p) pts.push({ id: t.id, x: p[0], y: p[1] })
+      }
+    }
+    // Second pass: derive missing from neighbor averages
+    for (const t of mapDefinition.territories) {
+      if (t.lon != null && t.lat != null) continue
+      const neighs = (t.neighbors || []).map(n => idToTerr.get(n)).filter(Boolean) as typeof mapDefinition.territories
+      const coords = neighs
+        .filter(n => n.lon != null && n.lat != null)
+        .map(n => projection([n.lon as number, n.lat as number]) as [number, number])
+        .filter(Boolean)
+      if (coords.length >= 1) {
+        const sx = coords.reduce((s, c) => s + c[0], 0)
+        const sy = coords.reduce((s, c) => s + c[1], 0)
+        const cx = sx / coords.length
+        const cy = sy / coords.length
+        pts.push({ id: t.id, x: cx, y: cy })
+      }
     }
     if (pts.length < 3) return null
     const delaunay = Delaunay.from(pts, d => d.x, d => d.y)
@@ -146,6 +165,23 @@ export default function RealMap({ mapId, mapDefinition, territories, players, se
     return { pts, vor }
   }, [mapDefinition, projection, canvas])
 
+  // Continent hulls (separate scoring regions)
+  const continentHulls = useMemo(() => {
+    const groups: Record<string, Array<[number, number]>> = {}
+    for (const t of mapDefinition.territories) {
+      if (t.lon == null || t.lat == null) continue
+      const p = projection([t.lon, t.lat]) as [number, number]
+      if (!p) continue
+      if (!groups[t.continent]) groups[t.continent] = []
+      groups[t.continent].push([p[0], p[1]])
+    }
+    const hulls: Array<{ id: string; hull: Array<[number, number]> }> = []
+    Object.keys(groups).forEach(id => {
+      const h = polygonHull(groups[id])
+      if (h && h.length >= 3) hulls.push({ id, hull: h as Array<[number, number]> })
+    })
+    return hulls
+  }, [mapDefinition, projection])
   // Center on requested territory
   useEffect(() => {
     if (!focusTerritoryId) return
@@ -326,7 +362,7 @@ export default function RealMap({ mapId, mapDefinition, territories, players, se
       <g style={{ pointerEvents: 'none' }}>
         {countryFeatures.map((cf, idx) => (
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          <path key={idx} d={path(cf as any)!} fill="none" stroke="#1e293b" strokeWidth={mapId==='world' ? 0.8 : 1.2} />
+          <path key={idx} d={path(cf as any)!} fill="none" stroke="#1e293b" strokeOpacity={0.25} strokeWidth={mapId==='world' ? 0.6 : 0.9} />
         ))}
       </g>
 
@@ -334,7 +370,7 @@ export default function RealMap({ mapId, mapDefinition, territories, players, se
       {voronoiData && (
         <>
           {/* Fills */}
-          <g style={{ pointerEvents: 'none' }} opacity={lowEffects ? 0.22 : 0.3} clipPath={`url(#map-clip-${mapId})`}>
+          <g style={{ pointerEvents: 'none' }} opacity={lowEffects ? 0.26 : 0.42} clipPath={`url(#map-clip-${mapId})`}>
             {voronoiData.pts.map((p, i) => {
               const poly = voronoiData.vor.cellPolygon(i) as Array<[number, number]> | null
               if (!poly || poly.length < 3) return null
@@ -372,22 +408,16 @@ export default function RealMap({ mapId, mapDefinition, territories, players, se
               )
             })}
           </g>
-          {/* Region borders (dashed, like equator lines) */}
-          <g style={{ pointerEvents: 'none' }} clipPath={`url(#map-clip-${mapId})`} filter="url(#region-glow)">
-            {voronoiData.pts.map((p, i) => {
-              const poly = voronoiData.vor.cellPolygon(i) as Array<[number, number]> | null
-              if (!poly || poly.length < 3) return null
-              const d = `M ${poly.map(([x, y]) => `${x},${y}`).join(' L ')} Z`
+          {/* Continent borders (scoring regions) */}
+          <g style={{ pointerEvents: 'none' }} clipPath={`url(#map-clip-${mapId})`}>
+            {continentHulls.map(ch => {
+              const d = `M ${ch.hull.map(([x, y]) => `${x},${y}`).join(' L ')} Z`
               return (
-                <path
-                  key={p.id + "-border"}
-                  d={d}
-                  fill="none"
-                  stroke="#fbbf24"
-                  strokeDasharray="1 3"
-                  strokeWidth={isMobile ? 1.8 : 1.5}
-                  opacity={lowEffects ? 0.65 : 0.95}
-                />
+                <g key={`contour-${ch.id}`}>
+                  {/* Soft fill to avoid harsh borders */}
+                  <path d={d} fill="#0ea5e911" stroke="none" />
+                  <path d={d} fill="none" stroke="#94a3b8" strokeDasharray="2 6" strokeWidth={isMobile ? 1.2 : 1.0} opacity={0.35} />
+                </g>
               )
             })}
           </g>
@@ -531,7 +561,7 @@ export default function RealMap({ mapId, mapDefinition, territories, players, se
                   <circle cx={xy[0]} cy={xy[1]} r={radius + 8} fill="none" stroke="#fbbf24" strokeOpacity={0.5} strokeWidth={2} strokeDasharray="3 3" />
                 )}
                 {selectable && (
-                  <circle cx={xy[0]} cy={xy[1]} r={radius + 6} fill="none" stroke={phase === 'attack' ? '#ef4444' : '#60a5fa'} strokeOpacity={0.35} strokeWidth={1.6} className={lowEffects ? undefined : "animate-pulse-slow"} />
+                  <circle cx={xy[0]} cy={xy[1]} r={radius + 6} fill="none" stroke={phase === 'attack' ? '#ef4444' : '#60a5fa'} strokeOpacity={0.35} strokeWidth={1.6} className={lowEffects ? '' : 'animate-pulse-slow'} />
                 )}
                 {isFocused && (
                   <circle cx={xy[0]} cy={xy[1]} r={radius + 10} fill="none" stroke="#22d3ee" strokeOpacity={0.8} strokeWidth={2.5} strokeDasharray="3 2" />

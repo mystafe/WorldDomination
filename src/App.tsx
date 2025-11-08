@@ -24,6 +24,7 @@ function App() {
   const [isMobile, setIsMobile] = useState(false)
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const [musicOn, setMusicOn] = useState(true)
+  const [logoOk, setLogoOk] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   const [focusId, setFocusId] = useState<string | null>(null)
   const [showOnboarding, setShowOnboarding] = useState(false)
@@ -45,7 +46,7 @@ function App() {
     try { setMap(loadConfig().selectedMap) } catch {}
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
-  const mapHeightClass = isMobile ? 'h-[90vh]' : 'h-[90vh]'
+  const mapHeightClass = isMobile ? 'h-[60vh]' : 'h-[90vh]'
   useEffect(() => {
     // Background music only during game
     try {
@@ -445,64 +446,49 @@ function App() {
   // Setup screen
   if (!setupComplete) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center p-4 relative overflow-hidden">
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-start justify-center px-3 pt-3 pb-2 relative overflow-hidden">
         {/* Decorative background */}
         <img
           src="/start-bg.svg"
           alt=""
           className="pointer-events-none select-none absolute -top-20 right-0 opacity-20 w-[900px] max-w-none animate-float"
         />
-        {/* Top bar actions */}
-        <div className="absolute top-4 left-0 right-0 px-4">
-          <div className="max-w-xl mx-auto flex items-center justify-between">
-            <div className="text-slate-400 text-xs">
-              {config.language === 'tr' ? 'Sürüm' : 'Version'} 1.1.7
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="bg-slate-800/60 border border-slate-700/60 rounded-xl p-1">
-                <button
-                  onClick={() => {
-                    const next = { ...config, language: 'tr' as const }
-                    setConfig(next)
-                    saveConfig(next)
-                    try { document.documentElement.lang = 'tr' } catch {}
-                  }}
-                  className={`px-3 py-1 rounded-lg text-xs font-semibold ${config.language==='tr' ? 'bg-emerald-500 text-white' : 'text-slate-300 hover:text-white'}`}
-                >
-                  TR
-                </button>
-                <button
-                  onClick={() => {
-                    const next = { ...config, language: 'en' as const }
-                    setConfig(next)
-                    saveConfig(next)
-                    try { document.documentElement.lang = 'en' } catch {}
-                  }}
-                  className={`px-3 py-1 rounded-lg text-xs font-semibold ${config.language==='en' ? 'bg-blue-500 text-white' : 'text-slate-300 hover:text-white'}`}
-                >
-                  EN
-                </button>
-              </div>
-              <button
-                onClick={() => setMusicOn(v => !v)}
-                className="btn btn-secondary !px-3 !py-2 text-xs"
-                aria-label="Toggle music"
-                title={musicOn ? (config.language==='tr' ? 'Müziği kapat' : 'Turn off music') : (config.language==='tr' ? 'Müziği aç' : 'Turn on music')}
-              >
-                {musicOn ? '🔊' : '🔈'}
-              </button>
-            </div>
-          </div>
-        </div>
+        {/* Top spacing (controls moved) */}
+        <div className="absolute top-4 left-0 right-0 px-4"></div>
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="max-w-xl w-full"
+          className="max-w-3xl w-full"
         >
           <div className="text-center mb-6">
             <div className="relative mx-auto mb-2 w-min">
+              <div className="absolute -inset-3 rounded-2xl bg-slate-900/80 border border-slate-700 shadow-xl" aria-hidden />
               <div className="absolute -inset-2 rounded-full blur-md opacity-70 animate-glow" style={{ background: 'linear-gradient(135deg, #10B98155, #3B82F655, #8B5CF655)' }} aria-hidden />
-              <img src="/logos/logo.svg" alt="World Domination" className="mx-auto animate-fade-in-scale" style={{ width: isMobile ? 44 : 64, height: isMobile ? 44 : 64, filter: 'drop-shadow(0 4px 12px rgba(0,0,0,0.4))' }} />
+              {logoOk ? (
+                <img
+                  src="/logos/logo.svg"
+                  alt="World Domination"
+                  className="block mx-auto animate-fade-in-scale object-contain"
+                  style={{ width: isMobile ? 224 : 320, height: isMobile ? 72 : 96, filter: 'drop-shadow(0 6px 14px rgba(0,0,0,0.5))', mixBlendMode: 'normal', opacity: 1 }}
+                  onError={() => setLogoOk(false)}
+                />
+              ) : (
+                <svg width={isMobile ? 224 : 320} height={isMobile ? 72 : 96} viewBox="0 0 360 96" className="block mx-auto">
+                  <defs>
+                    <linearGradient id="wd-grad-inline" x1="0" y1="0" x2="360" y2="96" gradientUnits="userSpaceOnUse">
+                      <stop offset="0" stopColor="#10B981"/><stop offset="0.5" stopColor="#3B82F6"/><stop offset="1" stopColor="#8B5CF6"/>
+                    </linearGradient>
+                  </defs>
+                  <g transform="translate(8,12)">
+                    <path d="M8,8 L22,72 L38,36 L54,72 L68,8 L56,8 L48,44 L38,20 L28,44 L20,8 Z" fill="url(#wd-grad-inline)"/>
+                    <path fillRule="evenodd" d="M84,8 L110,8 C132,8 144,22 144,40 C144,58 132,72 110,72 L84,72 Z M96,20 L108,20 C123,20 132,28 132,40 C132,52 123,60 108,60 L96,60 Z" fill="url(#wd-grad-inline)"/>
+                  </g>
+                  <g transform="translate(168,20)">
+                    <text x="0" y="28" fontFamily="Inter,Roboto,Arial,sans-serif" fontSize="28" fontWeight="900" letterSpacing="0.6" fill="#FFFFFF">World</text>
+                    <text x="110" y="28" fontFamily="Inter,Roboto,Arial,sans-serif" fontSize="28" fontWeight="900" letterSpacing="0.6" fill="url(#wd-grad-inline)">Domination</text>
+                  </g>
+                </svg>
+              )}
             </div>
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-xs mb-3 animate-fade-in-up">
               🌍 {config.language==='tr' ? 'Strateji • Çok oyunculu • Yapay Zekâ' : 'Strategy • Multiplayer • AI'}
@@ -674,6 +660,21 @@ function App() {
                         </select>
                       </div>
                       <div>
+                  <div className="text-xs text-slate-400 mb-1">{config.language==='tr' ? 'Dil' : 'Language'}</div>
+                  <select
+                    value={config.language}
+                    onChange={(e) => {
+                      const next = { ...config, language: e.target.value as 'tr'|'en' }
+                      setConfig(next); saveConfig(next)
+                      try { document.documentElement.lang = next.language } catch {}
+                    }}
+                    className="w-full rounded-md bg-slate-800/70 border border-slate-600/50 px-3 py-2 text-white"
+                  >
+                    <option value="tr">Türkçe</option>
+                    <option value="en">English</option>
+                  </select>
+                </div>
+                      <div>
                   <div className="text-xs text-slate-400 mb-1">Instant Mode</div>
                   <label className="inline-flex items-center gap-2 text-sm text-slate-300">
                     <input
@@ -753,7 +754,7 @@ function App() {
                     </div>
           {/* Subtle footer credit */}
           <div className="text-center text-[10px] text-slate-400/40 mt-4 select-none">
-            {tr('credit')}
+            {tr('credit')} • {(config.language==='tr' ? 'Sürüm' : 'Version')} 1.1.7
           </div>
         </motion.div>
                   </div>
@@ -821,20 +822,21 @@ function App() {
   
   // Game screen
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-4">
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-2 md:p-4">
       <div className="max-w-[2000px] mx-auto">
         {/* Header */}
-        <div className="bg-slate-800/50 backdrop-blur-xl rounded-2xl border border-slate-700/50 p-4 mb-4">
+        <div className="bg-slate-800/50 backdrop-blur-xl rounded-2xl border border-slate-700/50 p-3 md:p-4 mb-3 md:mb-4">
           <div className="flex justify-between items-center">
             <div className="flex items-center gap-3">
-              <div
-                aria-hidden
-                className="w-8 h-8 rounded-xl grid place-items-center shadow-lg"
-                style={{
-                  background: `linear-gradient(135deg, ${(currentPlayer?.color || '#10B981')} 0%, #3B82F6 100%)`
-                }}
-              >
-                <span className="text-xs font-extrabold text-white">WD</span>
+              <div className="relative">
+                <div className="absolute -inset-1 rounded-md bg-slate-900/70 border border-slate-700" aria-hidden />
+                <img
+                  src="/logos/logo.svg"
+                  alt="WD"
+                  className="relative w-10 h-10 rounded-md shadow-lg object-contain"
+                  style={{ mixBlendMode: 'normal', opacity: 1, filter: 'drop-shadow(0 3px 8px rgba(0,0,0,0.55))' }}
+                  onError={(e) => { (e.currentTarget as HTMLImageElement).src = '/favicon.svg' }}
+                />
               </div>
               <h1
                 className="text-2xl font-bold text-white cursor-pointer hover:underline"
@@ -965,6 +967,28 @@ function App() {
                     >
                       📂 {config.language==='tr' ? 'Yükle' : 'Load'}
                     </button>
+                    <button
+                      onClick={() => setMusicOn(v => !v)}
+                      className="px-3 py-2 text-xs rounded bg-slate-700 text-white hover:bg-slate-600"
+                      aria-label="Toggle music"
+                      title={musicOn ? (config.language==='tr' ? 'Müziği kapat' : 'Turn off music') : (config.language==='tr' ? 'Müziği aç' : 'Turn on music')}
+                    >
+                      {musicOn ? '🔊' : '🔈'}
+                    </button>
+                    <select
+                      value={config.language}
+                      onChange={(e) => {
+                        const next = { ...config, language: e.target.value as 'tr'|'en' }
+                        setConfig(next); saveConfig(next)
+                        try { document.documentElement.lang = next.language } catch {}
+                      }}
+                      className="px-2 py-2 text-xs rounded bg-slate-700 text-white hover:bg-slate-600"
+                      aria-label="Language"
+                      title={config.language==='tr' ? 'Dil' : 'Language'}
+                    >
+                      <option value="tr">TR</option>
+                      <option value="en">EN</option>
+                    </select>
                   </div>
                 </div>
               </div>
@@ -975,7 +999,7 @@ function App() {
         <div className="grid lg:grid-cols-5 xl:grid-cols-6 gap-4">
           {/* Map */}
           <div className="lg:col-span-4 xl:col-span-5">
-            <div className="bg-slate-800/50 backdrop-blur-xl rounded-2xl border border-slate-700/50 p-4">
+            <div className="bg-slate-800/50 backdrop-blur-xl rounded-2xl border border-slate-700/50 p-3 md:p-4">
               <h2 className="text-xl font-bold text-white mb-4">
                 {getMapById(selectedMap)?.name} • {territories.length} {tr('territoriesWord')}
               </h2>
@@ -1288,7 +1312,7 @@ function App() {
                   </div>
                 )}
             {/* Phase Info */}
-            <div className="bg-slate-800/50 backdrop-blur-xl rounded-2xl border border-slate-700/50 p-4">
+            <div className="bg-slate-800/50 backdrop-blur-xl rounded-2xl border border-slate-700/50 p-3 md:p-4">
               <h3 className="text-lg font-bold text-white mb-3">{tr('phase')}</h3>
 
               {phase === 'placement' && (
@@ -1705,7 +1729,7 @@ function App() {
       </div>
 
             {/* Cards Panel */}
-            <div className="bg-slate-800/50 backdrop-blur-xl rounded-2xl border border-slate-700/50 p-4">
+            <div className="bg-slate-800/50 backdrop-blur-xl rounded-2xl border border-slate-700/50 p-3 md:p-4">
               <h3 className="text-lg font-bold text-white mb-3">{tr('cards')}</h3>
               {currentPlayer ? (
                 <div className="flex items-center justify-between">
