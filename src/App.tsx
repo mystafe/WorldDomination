@@ -24,7 +24,6 @@ function App() {
   const [isMobile, setIsMobile] = useState(false)
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const [musicOn, setMusicOn] = useState(true)
-  const [logoOk, setLogoOk] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   const [focusId, setFocusId] = useState<string | null>(null)
   const [showOnboarding, setShowOnboarding] = useState(false)
@@ -1034,7 +1033,10 @@ function App() {
                     mapDefinition={mapDefinition}
                     territories={territories}
                     players={players}
-                    selected={{ from: attackFrom || undefined, to: attackTo || undefined }}
+                    selected={{
+                      from: (phase === 'attack' ? (attackFrom || undefined) : (phase === 'fortify' ? (fortifyFrom || undefined) : undefined)),
+                      to: (phase === 'attack' ? (attackTo || undefined) : (phase === 'fortify' ? (fortifyTo || undefined) : undefined))
+                    }}
                     onAttackOnce={() => {
                       if (!(attackFrom && attackTo)) return
                       const fs = getTerritoryState(attackFrom)
@@ -1063,6 +1065,17 @@ function App() {
                     }}
                     onEndAttack={() => endAttackPhase()}
                     lastBattleResult={lastBattleResult}
+                    onFortifyOne={() => {
+                      if (!(fortifyFrom && fortifyTo)) return
+                      executeFortify(1)
+                      setFortifyArmies(1)
+                    }}
+                    onFortifyAll={() => {
+                      if (!fortifyFrom) return
+                      const maxMove = Math.max(1, (getTerritoryState(fortifyFrom)?.armies || 1) - 1)
+                      executeFortify(maxMove)
+                      setFortifyArmies(1)
+                    }}
                     onTerritoryClick={(territoryId) => {
                       // Avoid placement/draft double placement via click; handled by hold/mouseup
                       if (phase === 'placement' || phase === 'draft') {

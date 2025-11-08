@@ -27,9 +27,33 @@ interface RealMapProps {
   onAllIn?: () => void
   onEndAttack?: () => void
   lastBattleResult?: { conquered?: boolean; attackerLosses?: number; defenderLosses?: number } | null
+  // optional compact fortify actions rendered on-map
+  onFortifyOne?: () => void
+  onFortifyAll?: () => void
 }
 
-export default function RealMap({ mapId, mapDefinition, territories, players, selected, onTerritoryClick, onTerritoryMouseDown, onTerritoryMouseUp, currentPlayerId = -1, phase, placementStage, suggestedId, focusTerritoryId, lowEffects = false, onAttackOnce, onAllIn, onEndAttack, lastBattleResult }: RealMapProps) {
+export default function RealMap({
+  mapId,
+  mapDefinition,
+  territories,
+  players,
+  selected,
+  onTerritoryClick,
+  onTerritoryMouseDown,
+  onTerritoryMouseUp,
+  currentPlayerId = -1,
+  phase,
+  placementStage,
+  suggestedId,
+  focusTerritoryId,
+  lowEffects = false,
+  onAttackOnce,
+  onAllIn,
+  onEndAttack,
+  lastBattleResult,
+  onFortifyOne,
+  onFortifyAll
+}: RealMapProps) {
   const svgRef = useRef<SVGSVGElement | null>(null)
   const [transform, setTransform] = useState<{ scale: number; tx: number; ty: number }>({ scale: 1, tx: 0, ty: 0 })
   const draggingRef = useRef(false)
@@ -699,6 +723,37 @@ export default function RealMap({ mapId, mapDefinition, territories, players, se
               <g transform="translate(104 0)" onClick={onEndAttack} style={{ cursor: onEndAttack ? 'pointer' : 'default' }}>
                 <rect x={0} y={-6} width={40} height={24} rx={8} fill="#334155" opacity="0.9" />
                 <text x={20} y="10" textAnchor="middle" fontSize="10" fill="#e2e8f0">⏹</text>
+              </g>
+            </g>
+          </g>
+        )
+      })()}
+
+      {/* Compact on-map fortify actions bubble */}
+      {(() => {
+        const fromId = (typeof selectedFrom === 'string') ? selectedFrom : undefined
+        const toId = (typeof (selected?.to) === 'string') ? (selected as { to: string }).to : undefined
+        if (phase !== 'fortify' || !fromId || !toId) return null
+        const fromDef2 = mapDefinition.territories.find(tt => tt.id === fromId)
+        const toDef2 = mapDefinition.territories.find(tt => tt.id === toId)
+        if (!fromDef2 || !toDef2) return null
+        const fa = (fromDef2.lon != null && fromDef2.lat != null) ? (projection([fromDef2.lon, fromDef2.lat]) as [number, number]) : null
+        const ta = (toDef2.lon != null && toDef2.lat != null) ? (projection([toDef2.lon, toDef2.lat]) as [number, number]) : null
+        if (!fa || !ta) return null
+        const mx = (fa[0] + ta[0]) / 2
+        const my = (fa[1] + ta[1]) / 2
+        const w = 150, h = 34
+        return (
+          <g transform={`translate(${mx - w/2} ${my - h - 16})`} style={{ pointerEvents: 'auto' }}>
+            <rect x={0} y={0} width={w} height={h} rx={10} fill="#0b1220EE" stroke="#334155" />
+            <g transform="translate(8 7)">
+              <g onClick={onFortifyOne} style={{ cursor: onFortifyOne ? 'pointer' : 'default' }}>
+                <rect x={0} y={-6} width={60} height={24} rx={8} fill="#3B82F6" opacity="0.9" />
+                <text x={30} y={10} textAnchor="middle" fontSize="10" fill="#fff">+1</text>
+              </g>
+              <g transform="translate(68 0)" onClick={onFortifyAll} style={{ cursor: onFortifyAll ? 'pointer' : 'default' }}>
+                <rect x={0} y={-6} width={74} height={24} rx={8} fill="#1e40af" opacity="0.9" />
+                <text x={37} y="10" textAnchor="middle" fontSize="10" fill="#e2e8f0">ALL ➜</text>
               </g>
             </g>
           </g>
