@@ -199,7 +199,7 @@ export default function RealMap({ mapId, mapDefinition, territories, players, se
     return players.find(p => p.id === t.ownerId) || null
   }
 
-  const selectedFrom = selected?.from || undefined
+  const selectedFrom = (typeof (selected?.from) === 'string' ? (selected as { from: string }).from : undefined) as string | undefined
   const fromDef = selectedFrom ? mapDefinition.territories.find(t => t.id === selectedFrom) : undefined
   const lang = (typeof document !== 'undefined' && document.documentElement.lang?.toLowerCase().startsWith('en')) ? 'en' : 'tr'
   const ctrlSize = isMobile ? 34 : 28
@@ -381,17 +381,20 @@ export default function RealMap({ mapId, mapDefinition, territories, players, se
               const isMine = st?.ownerId === currentPlayerId
               let clickable = true
               if (phase === 'attack') {
-                if (!selected?.from) {
+              if (!selectedFrom) {
                   clickable = !!isMine && (st?.armies || 0) > 1
                 } else {
-                  const fromDefLocal = selected?.from ? mapDefinition.territories.find(t => t.id === selected.from) : undefined
+                const fromDefLocal = selectedFrom ? mapDefinition.territories.find(t => t.id === selectedFrom) : undefined
                   const isNeighbor = fromDefLocal ? fromDefLocal.neighbors.includes(p.id) : false
-                  clickable = (selected?.from === p.id) || (isNeighbor && (st?.ownerId ?? -1) !== currentPlayerId)
+                const fromSelected = (selectedFrom !== undefined && selectedFrom === p.id)
+                clickable = (fromSelected) || (isNeighbor && (st?.ownerId ?? -1) !== currentPlayerId)
                 }
               } else if (phase === 'fortify') {
-                const fromDefLocal = selected?.from ? mapDefinition.territories.find(t => t.id === selected.from) : undefined
-                const isNeighbor = fromDefLocal ? fromDefLocal.neighbors.includes(p.id) : false
-                clickable = isMine && ((st?.armies || 0) > 1 || (fromDefLocal && (selected?.from === p.id || isNeighbor)))
+              const fromDefLocal = selectedFrom ? mapDefinition.territories.find(t => t.id === selectedFrom) : undefined
+              const isNeighbor = fromDefLocal ? fromDefLocal.neighbors.includes(p.id) : false
+              const fromSelected = (selectedFrom !== undefined && selectedFrom === p.id)
+              const hasFrom = !!fromDefLocal
+              clickable = isMine && ((st?.armies || 0) > 1 || (hasFrom && (fromSelected || isNeighbor)))
               } else if (phase === 'draft') {
                 clickable = isMine
               } else if (phase === 'placement') {
