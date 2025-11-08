@@ -514,7 +514,7 @@ export default function RealMap({ mapId, mapDefinition, territories, players, se
             const armyFont = isMobile ? 5.8 : (mapId === 'europe' ? 7.2 : 8.0)
 
             // Clickability hint: dim non-clickables
-            const isMine = state?.ownerId === currentPlayerId
+            const isMine = ((state?.ownerId ?? -9999) === currentPlayerId)
             let clickable = true
             if (phase === 'attack') {
               if (!selectedFrom) {
@@ -532,7 +532,7 @@ export default function RealMap({ mapId, mapDefinition, territories, players, se
               clickable = isMine
             } else if (phase === 'placement') {
               if (placementStage === 'claim') {
-                clickable = state?.ownerId === -1
+                clickable = ((state?.ownerId ?? -2) === -1)
               } else {
                 clickable = isMine
               }
