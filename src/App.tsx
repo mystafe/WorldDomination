@@ -46,7 +46,7 @@ function App() {
     try { setMap(loadConfig().selectedMap) } catch {}
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
-  const mapHeightClass = isMobile ? 'h-[60vh]' : 'h-[90vh]'
+  const mapHeightClass = isMobile ? 'h-[50vh]' : 'h-[90vh]'
   useEffect(() => {
     // Background music only during game
     try {
@@ -460,36 +460,7 @@ function App() {
           animate={{ opacity: 1, y: 0 }}
           className="max-w-3xl w-full"
         >
-          <div className="text-center mb-6">
-            <div className="relative mx-auto mb-2 w-min">
-              <div className="absolute -inset-3 rounded-2xl bg-slate-900/80 border border-slate-700 shadow-xl" aria-hidden />
-              <div className="absolute -inset-2 rounded-full blur-md opacity-70 animate-glow" style={{ background: 'linear-gradient(135deg, #10B98155, #3B82F655, #8B5CF655)' }} aria-hidden />
-              {logoOk ? (
-                <img
-                  src="/logos/logo.svg"
-                  alt="World Domination"
-                  className="block mx-auto animate-fade-in-scale object-contain"
-                  style={{ width: isMobile ? 224 : 320, height: isMobile ? 72 : 96, filter: 'drop-shadow(0 6px 14px rgba(0,0,0,0.5))', mixBlendMode: 'normal', opacity: 1 }}
-                  onError={() => setLogoOk(false)}
-                />
-              ) : (
-                <svg width={isMobile ? 224 : 320} height={isMobile ? 72 : 96} viewBox="0 0 360 96" className="block mx-auto">
-                  <defs>
-                    <linearGradient id="wd-grad-inline" x1="0" y1="0" x2="360" y2="96" gradientUnits="userSpaceOnUse">
-                      <stop offset="0" stopColor="#10B981"/><stop offset="0.5" stopColor="#3B82F6"/><stop offset="1" stopColor="#8B5CF6"/>
-                    </linearGradient>
-                  </defs>
-                  <g transform="translate(8,12)">
-                    <path d="M8,8 L22,72 L38,36 L54,72 L68,8 L56,8 L48,44 L38,20 L28,44 L20,8 Z" fill="url(#wd-grad-inline)"/>
-                    <path fillRule="evenodd" d="M84,8 L110,8 C132,8 144,22 144,40 C144,58 132,72 110,72 L84,72 Z M96,20 L108,20 C123,20 132,28 132,40 C132,52 123,60 108,60 L96,60 Z" fill="url(#wd-grad-inline)"/>
-                  </g>
-                  <g transform="translate(168,20)">
-                    <text x="0" y="28" fontFamily="Inter,Roboto,Arial,sans-serif" fontSize="28" fontWeight="900" letterSpacing="0.6" fill="#FFFFFF">World</text>
-                    <text x="110" y="28" fontFamily="Inter,Roboto,Arial,sans-serif" fontSize="28" fontWeight="900" letterSpacing="0.6" fill="url(#wd-grad-inline)">Domination</text>
-                  </g>
-                </svg>
-              )}
-            </div>
+          <div className="text-center mb-4">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-xs mb-3 animate-fade-in-up">
               🌍 {config.language==='tr' ? 'Strateji • Çok oyunculu • Yapay Zekâ' : 'Strategy • Multiplayer • AI'}
             </div>
@@ -754,7 +725,7 @@ function App() {
                     </div>
           {/* Subtle footer credit */}
           <div className="text-center text-[10px] text-slate-400/40 mt-4 select-none">
-            {tr('credit')} • {(config.language==='tr' ? 'Sürüm' : 'Version')} 1.1.7
+            {tr('credit')} • {(config.language==='tr' ? 'Sürüm' : 'Version')} 1.1.8
           </div>
         </motion.div>
                   </div>
@@ -828,16 +799,6 @@ function App() {
         <div className="bg-slate-800/50 backdrop-blur-xl rounded-2xl border border-slate-700/50 p-3 md:p-4 mb-3 md:mb-4">
           <div className="flex justify-between items-center">
             <div className="flex items-center gap-3">
-              <div className="relative">
-                <div className="absolute -inset-1 rounded-md bg-slate-900/70 border border-slate-700" aria-hidden />
-                <img
-                  src="/logos/logo.svg"
-                  alt="WD"
-                  className="relative w-10 h-10 rounded-md shadow-lg object-contain"
-                  style={{ mixBlendMode: 'normal', opacity: 1, filter: 'drop-shadow(0 3px 8px rgba(0,0,0,0.55))' }}
-                  onError={(e) => { (e.currentTarget as HTMLImageElement).src = '/favicon.svg' }}
-                />
-              </div>
               <h1
                 className="text-2xl font-bold text-white cursor-pointer hover:underline"
                 onClick={() => {
@@ -1074,6 +1035,34 @@ function App() {
                     territories={territories}
                     players={players}
                     selected={{ from: attackFrom || undefined, to: attackTo || undefined }}
+                    onAttackOnce={() => {
+                      if (!(attackFrom && attackTo)) return
+                      const fs = getTerritoryState(attackFrom)
+                      const ts = getTerritoryState(attackTo)
+                      if (!fs || !ts) return
+                      const a = Math.min(3, Math.max(1, (fs.armies || 1) - 1))
+                      const d = Math.min(2, Math.max(1, (ts.armies || 1)))
+                      executeAttack(a, d)
+                    }}
+                    onAllIn={() => {
+                      if (!(attackFrom && attackTo)) return
+                      let loopGuard = 0, totalA = 0, totalD = 0, conquered = false
+                      while (loopGuard < 200) {
+                        loopGuard++
+                        const fs = getTerritoryState(attackFrom!)
+                        const ts = getTerritoryState(attackTo!)
+                        if (!fs || !ts) break
+                        if (fs.armies <= 1) break
+                        const a = Math.min(3, fs.armies - 1)
+                        const d = Math.min(2, ts.armies)
+                        executeAttack(a, d)
+                        const lr = useGameStore.getState().lastBattleResult
+                        if (lr) { totalA += lr.attackerLosses||0; totalD += lr.defenderLosses||0; if (lr.conquered) { conquered = true; break } } else { break }
+                      }
+                      if (!conquered) { useGameStore.setState({ lastBattleResult: { attackerLosses: totalA, defenderLosses: totalD, conquered: false } as any }) }
+                    }}
+                    onEndAttack={() => endAttackPhase()}
+                    lastBattleResult={lastBattleResult}
                     onTerritoryClick={(territoryId) => {
                       // Avoid placement/draft double placement via click; handled by hold/mouseup
                       if (phase === 'placement' || phase === 'draft') {
@@ -1175,8 +1164,8 @@ function App() {
               {/* Mobile floating actions (top overlay) - do not block map taps */}
               {isMobile && (
                 <div className="pointer-events-none absolute inset-x-0 top-2 flex justify-center md:hidden">
-                  {/* Attack phase */}
-                  {phase === 'attack' && attackFrom && attackTo && !lastBattleResult && (
+                  {/* Attack phase (moved to on-map bubble; keep disabled here to avoid duplication) */}
+                  {false && phase === 'attack' && attackFrom && attackTo && !lastBattleResult && (
                     <div className="pointer-events-auto bg-slate-900/70 backdrop-blur border border-slate-700/60 rounded-xl shadow-xl flex gap-2 px-3 py-2">
                       {config.instantMode ? (
                         <motion.button

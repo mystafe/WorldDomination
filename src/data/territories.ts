@@ -278,32 +278,32 @@ export const TURKEY_MAP_MINI: MapDefinition = {
     { id: 'balikesir', name: 'Balıkesir', continent: 'marmara', neighbors: ['bursa', 'izmir', 'tekirdag'], lat: 39.65, lon: 27.88 },
     
     // Aegean (4)
-    { id: 'izmir', name: 'İzmir', continent: 'aegean', neighbors: ['balikesir', 'aydin'], lat: 38.42, lon: 27.14 },
-    { id: 'aydin', name: 'Aydın', continent: 'aegean', neighbors: ['izmir', 'afyon', 'antalya'], lat: 37.85, lon: 27.84 },
+    { id: 'izmir', name: 'İzmir', continent: 'aegean', neighbors: ['balikesir', 'aydin', 'mugla'], lat: 38.42, lon: 27.14 },
+    { id: 'aydin', name: 'Aydın', continent: 'aegean', neighbors: ['izmir', 'afyon', 'antalya', 'mugla'], lat: 37.85, lon: 27.84 },
     { id: 'mugla', name: 'Muğla', continent: 'aegean', neighbors: ['aydin', 'antalya'], lat: 37.21, lon: 28.36 },
-    { id: 'afyon', name: 'Afyon', continent: 'aegean', neighbors: ['aydin', 'eskisehir', 'konya'], lat: 38.76, lon: 30.54 },
+    { id: 'afyon', name: 'Afyon', continent: 'aegean', neighbors: ['aydin', 'konya', 'ankara'], lat: 38.76, lon: 30.54 },
     
     // Mediterranean (3)
-    { id: 'antalya', name: 'Antalya', continent: 'mediterranean', neighbors: ['aydin', 'konya', 'mersin'], lat: 36.90, lon: 30.71 },
+    { id: 'antalya', name: 'Antalya', continent: 'mediterranean', neighbors: ['aydin', 'mugla', 'konya', 'mersin'], lat: 36.90, lon: 30.71 },
     { id: 'mersin', name: 'Mersin', continent: 'mediterranean', neighbors: ['antalya', 'konya', 'adana'], lat: 36.81, lon: 34.64 },
     { id: 'adana', name: 'Adana', continent: 'mediterranean', neighbors: ['mersin', 'kayseri', 'gaziantep'], lat: 37.00, lon: 35.32 },
     
     // Central Anatolia (4)
-    { id: 'ankara', name: 'Ankara', continent: 'central_anatolia', neighbors: ['bolu', 'konya'], lat: 39.93, lon: 32.85 },
+    { id: 'ankara', name: 'Ankara', continent: 'central_anatolia', neighbors: ['bolu', 'konya', 'corum', 'afyon'], lat: 39.93, lon: 32.85 },
     { id: 'konya', name: 'Konya', continent: 'central_anatolia', neighbors: ['ankara', 'afyon', 'antalya', 'mersin', 'kayseri'], lat: 37.87, lon: 32.48 },
     { id: 'kayseri', name: 'Kayseri', continent: 'central_anatolia', neighbors: ['adana', 'malatya', 'corum', 'konya'], lat: 38.73, lon: 35.48 },
     
     // Black Sea (5)
-    { id: 'bolu', name: 'Bolu', continent: 'black_sea', neighbors: ['ankara', 'corum'], lat: 40.74, lon: 31.61 },
+    { id: 'bolu', name: 'Bolu', continent: 'black_sea', neighbors: ['ankara', 'corum', 'kocaeli'], lat: 40.74, lon: 31.61 },
     { id: 'corum', name: 'Çorum', continent: 'black_sea', neighbors: ['ankara', 'samsun', 'bolu', 'kayseri'], lat: 40.55, lon: 34.95 },
     { id: 'samsun', name: 'Samsun', continent: 'black_sea', neighbors: ['corum', 'ordu', 'ankara'], lat: 41.29, lon: 36.33 },
     { id: 'ordu', name: 'Ordu', continent: 'black_sea', neighbors: ['samsun', 'erzincan', 'trabzon'], lat: 40.98, lon: 37.88 },
-    { id: 'trabzon', name: 'Trabzon', continent: 'black_sea', neighbors: ['ordu', 'erzincan'], lat: 41.00, lon: 39.72 },
+    { id: 'trabzon', name: 'Trabzon', continent: 'black_sea', neighbors: ['ordu', 'erzincan', 'erzurum'], lat: 41.00, lon: 39.72 },
     
     // Eastern Anatolia (4)
     { id: 'malatya', name: 'Malatya', continent: 'eastern_anatolia', neighbors: ['kayseri', 'erzincan', 'diyarbakir'], lat: 38.35, lon: 38.31 },
     { id: 'erzincan', name: 'Erzincan', continent: 'eastern_anatolia', neighbors: ['malatya', 'erzurum', 'ordu', 'trabzon'], lat: 39.75, lon: 39.49 },
-    { id: 'erzurum', name: 'Erzurum', continent: 'eastern_anatolia', neighbors: ['erzincan', 'van'], lat: 39.90, lon: 41.27 },
+    { id: 'erzurum', name: 'Erzurum', continent: 'eastern_anatolia', neighbors: ['erzincan', 'van', 'trabzon'], lat: 39.90, lon: 41.27 },
     { id: 'van', name: 'Van', continent: 'eastern_anatolia', neighbors: ['erzurum', 'diyarbakir'], lat: 38.49, lon: 43.38 },
     
     // Southeastern Anatolia (3)
