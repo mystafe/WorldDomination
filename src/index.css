@@ -41,6 +41,7 @@
     background-attachment: fixed;
     min-height: 100vh;
     position: relative;
+    overflow-x: hidden;
   }
 
   body::before {
@@ -69,6 +70,31 @@
       0 0 0 1px rgba(255, 255, 255, 0.05),
       inset 0 1px 0 rgba(255, 255, 255, 0.1);
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  /* Animated gradient overlay */
+  body::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    background: radial-gradient(1200px 800px at 20% 10%, rgba(16,185,129,0.12), transparent 60%),
+                radial-gradient(1000px 700px at 80% 15%, rgba(59,130,246,0.10), transparent 65%),
+                radial-gradient(900px 600px at 50% 85%, rgba(139,92,246,0.10), transparent 60%);
+    mix-blend-mode: screen;
+    animation: backgroundPan 18s ease-in-out infinite alternate;
+    z-index: -1;
+  }
+
+  @keyframes backgroundPan {
+    0% {
+      transform: translate3d(0, 0, 0) scale(1);
+      opacity: 0.7;
+    }
+    100% {
+      transform: translate3d(-2%, -2%, 0) scale(1.02);
+      opacity: 0.9;
+    }
   }
 
   .card:hover {

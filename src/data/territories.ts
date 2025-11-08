@@ -60,7 +60,7 @@ export const WORLD_MAP: MapDefinition = {
     { id: 'scandinavia', name: 'Scandinavia', continent: 'europe', neighbors: ['iceland', 'great_britain', 'northern_europe', 'ukraine'], lat: 62, lon: 15 },
     { id: 'northern_europe', name: 'Northern Europe', continent: 'europe', neighbors: ['great_britain', 'scandinavia', 'ukraine', 'southern_europe', 'western_europe'], lat: 52, lon: 10 },
     { id: 'western_europe', name: 'Western Europe', continent: 'europe', neighbors: ['great_britain', 'northern_europe', 'turkey', 'north_africa'], lat: 47, lon: 2 },
-    { id: 'turkey', name: 'Türkiye', continent: 'europe', neighbors: ['western_europe', 'northern_europe', 'ukraine', 'north_africa', 'egypt', 'middle_east'], lat: 42, lon: 15 },
+    { id: 'turkey', name: 'Türkiye', continent: 'europe', neighbors: ['western_europe', 'northern_europe', 'ukraine', 'north_africa', 'egypt', 'middle_east'], lat: 39.0, lon: 35.0 },
     { id: 'ukraine', name: 'Ukraine', continent: 'europe', neighbors: ['scandinavia', 'northern_europe', 'southern_europe', 'middle_east', 'afghanistan', 'ural'], lat: 49, lon: 32 },
     
     // Africa (6 territories)
@@ -98,11 +98,11 @@ export const WORLD_MAP_MINI: MapDefinition = {
   id: 'world_mini',
   name: 'World',
   continents: [
-    { id: 'north_america', name: 'North America', bonus: 4, color: '#F59E0B' },
+    { id: 'north_america', name: 'North America', bonus: 3, color: '#F59E0B' },
     { id: 'south_america', name: 'South America', bonus: 2, color: '#EF4444' },
-    { id: 'europe', name: 'Europe', bonus: 4, color: '#3B82F6' },
-    { id: 'africa', name: 'Africa', bonus: 3, color: '#8B5CF6' },
-    { id: 'asia', name: 'Asia', bonus: 5, color: '#10B981' },
+    { id: 'europe', name: 'Europe', bonus: 3, color: '#3B82F6' },
+    { id: 'africa', name: 'Africa', bonus: 2, color: '#8B5CF6' },
+    { id: 'asia', name: 'Asia', bonus: 4, color: '#10B981' },
     { id: 'australia', name: 'Australia', bonus: 2, color: '#EC4899' }
   ],
   territories: [
@@ -110,7 +110,7 @@ export const WORLD_MAP_MINI: MapDefinition = {
     { id: 'alaska', name: 'Alaska', continent: 'north_america', neighbors: ['western_us', 'greenland', 'kamchatka'], lat: 64, lon: -153 },
     { id: 'western_us', name: 'Western United States', continent: 'north_america', neighbors: ['alaska', 'eastern_us', 'central_america'], lat: 40, lon: -110 },
     { id: 'eastern_us', name: 'Eastern United States', continent: 'north_america', neighbors: ['western_us', 'greenland', 'central_america'], lat: 38, lon: -80 },
-    { id: 'greenland', name: 'Greenland', continent: 'north_america', neighbors: ['eastern_us', 'alaska'], lat: 72, lon: -40 },
+    { id: 'greenland', name: 'Greenland', continent: 'north_america', neighbors: ['alaska', 'eastern_us'], lat: 72, lon: -40 },
     { id: 'central_america', name: 'Central America', continent: 'north_america', neighbors: ['western_us', 'eastern_us', 'venezuela'], lat: 15, lon: -90 },
     // South America (3)
     { id: 'venezuela', name: 'Venezuela', continent: 'south_america', neighbors: ['central_america', 'brazil'], lat: 8, lon: -66 },
@@ -120,7 +120,7 @@ export const WORLD_MAP_MINI: MapDefinition = {
     { id: 'great_britain', name: 'Great Britain', continent: 'europe', neighbors: ['western_europe'], lat: 54, lon: -2 },
     { id: 'western_europe', name: 'Western Europe', continent: 'europe', neighbors: ['great_britain', 'turkey', 'north_africa'], lat: 47, lon: 2 },
     { id: 'ukraine', name: 'Ukraine', continent: 'europe', neighbors: ['turkey', 'ural', 'middle_east'], lat: 49, lon: 32 },
-    { id: 'turkey', name: 'Türkiye', continent: 'europe', neighbors: ['western_europe', 'middle_east', 'north_africa', 'ukraine'], lat: 42, lon: 15 },
+    { id: 'turkey', name: 'Türkiye', continent: 'europe', neighbors: ['western_europe', 'middle_east', 'north_africa', 'ukraine'], lat: 39.0, lon: 35.0 },
     // Africa (4)
     { id: 'north_africa', name: 'North Africa', continent: 'africa', neighbors: ['western_europe', 'turkey', 'egypt', 'brazil'], lat: 20, lon: 10 },
     { id: 'egypt', name: 'Egypt', continent: 'africa', neighbors: ['north_africa', 'east_africa', 'southern_europe', 'middle_east'], lat: 26, lon: 30 },
@@ -140,13 +140,8 @@ export const WORLD_MAP_MINI: MapDefinition = {
   ]
 }
 
-// WORLD MAP - MIDI (reuse standard, approx 40 territories)
-export const WORLD_MAP_MIDI: MapDefinition = {
-  id: 'world_midi',
-  name: 'World',
-  continents: WORLD_MAP.continents,
-  territories: WORLD_MAP.territories
-}
+// WORLD MAP - MIDI
+// Dynamic variant: not explicitly listed in ALL_MAPS to enable 40-territory derivation via getMapById fallback.
 
 // TURKEY MAP
 export const TURKEY_MAP: MapDefinition = {
@@ -454,55 +449,89 @@ export const EUROPE_MAP_MINI: MapDefinition = {
   id: 'europe_mini',
   name: 'Europe',
   continents: [
-    { id: 'western_europe', name: 'Western Europe', bonus: 4, color: '#3B82F6' },
-    { id: 'southern_europe', name: 'Southern Europe', bonus: 3, color: '#F59E0B' },
-    { id: 'northern_europe', name: 'Northern Europe', bonus: 3, color: '#10B981' },
-    { id: 'eastern_europe', name: 'Eastern Europe', bonus: 4, color: '#8B5CF6' },
+    { id: 'western_europe', name: 'Western Europe', bonus: 3, color: '#3B82F6' },
+    { id: 'southern_europe', name: 'Southern Europe', bonus: 2, color: '#F59E0B' },
+    { id: 'northern_europe', name: 'Northern Europe', bonus: 2, color: '#10B981' },
+    { id: 'eastern_europe', name: 'Eastern Europe', bonus: 3, color: '#8B5CF6' },
     { id: 'balkans', name: 'Balkans', bonus: 2, color: '#EF4444' }
   ],
   territories: [
-    // West
+    // Western Europe
     { id: 'spain', name: 'Spain', continent: 'western_europe', neighbors: ['france'], lat: 40.5, lon: -3.7 },
-    { id: 'france', name: 'France', continent: 'western_europe', neighbors: ['spain', 'germany', 'italy', 'uk'], lat: 46.2, lon: 2.2 },
-    { id: 'germany', name: 'Germany', continent: 'western_europe', neighbors: ['france', 'poland', 'czech_republic', 'italy'], lat: 51.2, lon: 10.5 },
-    // North
-    { id: 'uk', name: 'United Kingdom', continent: 'northern_europe', neighbors: ['norway', 'france'], lat: 55.4, lon: -3.4 },
-    { id: 'norway', name: 'Norway', continent: 'northern_europe', neighbors: ['uk', 'sweden'], lat: 60.5, lon: 8.5 },
-    { id: 'sweden', name: 'Sweden', continent: 'northern_europe', neighbors: ['norway', 'finland'], lat: 60.1, lon: 18.6 },
-    { id: 'finland', name: 'Finland', continent: 'northern_europe', neighbors: ['sweden', 'russia'], lat: 61.9, lon: 25.7 },
-    // East
-    { id: 'poland', name: 'Poland', continent: 'eastern_europe', neighbors: ['germany', 'ukraine', 'czech_republic'], lat: 51.9, lon: 19.1 },
-    { id: 'ukraine', name: 'Ukraine', continent: 'eastern_europe', neighbors: ['poland', 'romania', 'russia'], lat: 48.4, lon: 31.2 },
-    { id: 'russia', name: 'Russia', continent: 'eastern_europe', neighbors: ['finland', 'ukraine'], lat: 61.5, lon: 35.2433 },
-    { id: 'czech_republic', name: 'Czech Republic', continent: 'eastern_europe', neighbors: ['germany', 'poland'], lat: 49.8, lon: 15.5 },
-    // South/Balkans
-    { id: 'italy', name: 'Italy', continent: 'southern_europe', neighbors: ['france', 'slovenia', 'greece', 'germany'], lat: 41.9, lon: 12.6 },
-    { id: 'slovenia', name: 'Slovenia', continent: 'balkans', neighbors: ['italy', 'croatia', 'hungary'], lat: 46.2, lon: 14.9 },
-    { id: 'croatia', name: 'Croatia', continent: 'balkans', neighbors: ['slovenia', 'serbia'], lat: 45.1, lon: 15.2 },
-    { id: 'serbia', name: 'Serbia', continent: 'balkans', neighbors: ['croatia', 'romania', 'bulgaria', 'greece'], lat: 44.0, lon: 21.0 },
-    { id: 'romania', name: 'Romania', continent: 'eastern_europe', neighbors: ['serbia', 'ukraine', 'bulgaria'], lat: 45.9, lon: 24.9 },
-    { id: 'bulgaria', name: 'Bulgaria', continent: 'balkans', neighbors: ['serbia', 'romania', 'greece'], lat: 42.7, lon: 25.5 },
-    { id: 'greece', name: 'Greece', continent: 'southern_europe', neighbors: ['bulgaria', 'italy', 'serbia', 'turkey'], lat: 39.1, lon: 21.8 },
-    { id: 'turkey', name: 'Türkiye', continent: 'southern_europe', neighbors: ['greece', 'bulgaria'], lat: 39.0, lon: 35.0 }
+    { id: 'france', name: 'France', continent: 'western_europe', neighbors: ['spain', 'germany', 'switzerland', 'italy', 'uk', 'netherlands'], lat: 46.2, lon: 2.2 },
+    { id: 'germany', name: 'Germany', continent: 'western_europe', neighbors: ['france', 'netherlands', 'denmark', 'poland', 'czech_republic', 'switzerland', 'austria'], lat: 51.2, lon: 10.5 },
+    { id: 'netherlands', name: 'Netherlands', continent: 'western_europe', neighbors: ['france', 'germany'], lat: 52.1, lon: 5.3 },
+    { id: 'switzerland', name: 'Switzerland', continent: 'western_europe', neighbors: ['france', 'germany', 'italy', 'austria'], lat: 46.8, lon: 8.2 },
+    // Northern Europe
+    { id: 'uk', name: 'United Kingdom', continent: 'northern_europe', neighbors: ['france', 'norway', 'denmark'], lat: 55.4, lon: -3.4 },
+    { id: 'norway', name: 'Norway', continent: 'northern_europe', neighbors: ['uk', 'sweden', 'denmark', 'finland'], lat: 60.5, lon: 8.5 },
+    { id: 'sweden', name: 'Sweden', continent: 'northern_europe', neighbors: ['norway', 'finland', 'denmark'], lat: 60.1, lon: 18.6 },
+    { id: 'finland', name: 'Finland', continent: 'northern_europe', neighbors: ['sweden', 'russia', 'norway'], lat: 61.9, lon: 25.7 },
+    { id: 'denmark', name: 'Denmark', continent: 'northern_europe', neighbors: ['germany', 'sweden', 'norway', 'uk'], lat: 56.3, lon: 9.5 },
+    // Eastern Europe
+    { id: 'poland', name: 'Poland', continent: 'eastern_europe', neighbors: ['germany', 'czech_republic', 'austria', 'hungary', 'ukraine', 'belarus'], lat: 51.9, lon: 19.1 },
+    { id: 'belarus', name: 'Belarus', continent: 'eastern_europe', neighbors: ['poland', 'ukraine', 'russia'], lat: 53.7, lon: 27.9 },
+    { id: 'ukraine', name: 'Ukraine', continent: 'eastern_europe', neighbors: ['poland', 'belarus', 'russia', 'romania'], lat: 48.4, lon: 31.2 },
+    { id: 'russia', name: 'Russia', continent: 'eastern_europe', neighbors: ['finland', 'belarus', 'ukraine'], lat: 61.5, lon: 35.2433 },
+    { id: 'czech_republic', name: 'Czech Republic', continent: 'eastern_europe', neighbors: ['germany', 'poland', 'austria'], lat: 49.8, lon: 15.5 },
+    // Central/Southern Europe and Balkans
+    { id: 'austria', name: 'Austria', continent: 'western_europe', neighbors: ['germany', 'czech_republic', 'switzerland', 'italy', 'slovenia', 'hungary', 'poland'], lat: 47.5, lon: 14.6 },
+    { id: 'hungary', name: 'Hungary', continent: 'eastern_europe', neighbors: ['austria', 'slovenia', 'croatia', 'serbia', 'romania'], lat: 47.2, lon: 19.5 },
+    { id: 'italy', name: 'Italy', continent: 'southern_europe', neighbors: ['france', 'switzerland', 'austria', 'slovenia'], lat: 41.9, lon: 12.6 },
+    { id: 'slovenia', name: 'Slovenia', continent: 'balkans', neighbors: ['italy', 'austria', 'hungary', 'croatia'], lat: 46.2, lon: 14.9 },
+    { id: 'croatia', name: 'Croatia', continent: 'balkans', neighbors: ['slovenia', 'hungary', 'serbia'], lat: 45.1, lon: 15.2 },
+    { id: 'serbia', name: 'Serbia', continent: 'balkans', neighbors: ['croatia', 'hungary', 'romania', 'bulgaria', 'greece'], lat: 44.0, lon: 21.0 },
+    { id: 'romania', name: 'Romania', continent: 'eastern_europe', neighbors: ['hungary', 'serbia', 'bulgaria', 'ukraine', 'turkey'], lat: 45.9, lon: 24.9 },
+    { id: 'bulgaria', name: 'Bulgaria', continent: 'balkans', neighbors: ['serbia', 'romania', 'greece', 'turkey'], lat: 42.7, lon: 25.5 },
+    { id: 'greece', name: 'Greece', continent: 'southern_europe', neighbors: ['bulgaria', 'serbia', 'italy', 'turkey'], lat: 39.1, lon: 21.8 },
+    { id: 'turkey', name: 'Türkiye', continent: 'southern_europe', neighbors: ['greece', 'bulgaria', 'romania', 'ukraine'], lat: 39.0, lon: 35.0 }
   ]
 }
 
-// EUROPE MAP - MIDI (reuse standard)
-export const EUROPE_MAP_MIDI: MapDefinition = {
-  id: 'europe_midi',
-  name: 'Europe',
-  continents: EUROPE_MAP.continents,
-  territories: EUROPE_MAP.territories
-}
+// EUROPE MAP - MIDI
+// Dynamic variant: not explicitly listed in ALL_MAPS to enable 40-territory derivation via getMapById fallback.
 
 export const ALL_MAPS: MapDefinition[] = [
-  WORLD_MAP, WORLD_MAP_MINI, WORLD_MAP_MIDI,
+  WORLD_MAP, WORLD_MAP_MINI,
   TURKEY_MAP, TURKEY_MAP_MINI, TURKEY_MAP_MIDI,
-  EUROPE_MAP, EUROPE_MAP_MINI, EUROPE_MAP_MIDI
+  EUROPE_MAP, EUROPE_MAP_MINI
 ]
 
+function deriveMap(base: MapDefinition, derivedId: string, targetCount: number): MapDefinition {
+  // ensure Türkiye is included if exists
+  const hasTurkey = base.territories.some(t => t.id === 'turkey')
+  let selected = base.territories.slice(0, targetCount)
+  if (hasTurkey && !selected.some(t => t.id === 'turkey')) {
+    // replace last with turkey
+    const turkeyDef = base.territories.find(t => t.id === 'turkey')!
+    selected = [...selected.slice(0, targetCount - 1), turkeyDef]
+  }
+  const allowed = new Set(selected.map(t => t.id))
+  const filteredTerritories = selected.map(t => ({
+    ...t,
+    neighbors: t.neighbors.filter(n => allowed.has(n))
+  }))
+  // keep continents and colors; consumers only read by id on territories
+  return {
+    id: derivedId,
+    name: base.name,
+    continents: base.continents,
+    territories: filteredTerritories
+  }
+}
+
 export function getMapById(id: string): MapDefinition | undefined {
-  return ALL_MAPS.find(m => m.id === id)
+  const found = ALL_MAPS.find(m => m.id === id)
+  if (found) return found
+  // Dynamic MIDI fallback (approximate 40) for maps without explicit midi variant
+  if (id.endsWith('_midi')) {
+    const baseId = id.replace(/_midi$/, '')
+    const base = ALL_MAPS.find(m => m.id === baseId)
+    if (base) {
+      return deriveMap(base, id, 40)
+    }
+  }
+  return undefined
 }
 
 export function getTerritoryById(mapId: string, territoryId: string): Territory | undefined {

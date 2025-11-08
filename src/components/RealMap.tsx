@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import { feature } from "topojson-client"
+import { Delaunay } from "d3-delaunay"
 import { geoMercator, geoNaturalEarth1, geoPath, geoBounds } from "d3-geo"
 import world110 from "world-atlas/countries-110m.json" with { type: "json" }
 import type { MapDefinition } from "../data/territories"
@@ -32,10 +33,38 @@ export default function RealMap({ mapId, mapDefinition, territories, players, se
   const [showHelp, setShowHelp] = useState(false)
   const [minimapActive, setMinimapActive] = useState(true)
   const minimapTimerRef = useRef<number | null>(null)
+  // Track army placement increases for pop animation
+  const prevArmiesRef = useRef<Record<string, number>>({})
+  const [flashIds, setFlashIds] = useState<Record<string, number>>({})
   useEffect(() => {
     const t = window.setTimeout(() => setMinimapActive(false), 1200)
     return () => window.clearTimeout(t)
   }, [])
+  // Detect increases
+  useEffect(() => {
+    const now = Date.now()
+    const nextPrev: Record<string, number> = { ...prevArmiesRef.current }
+    territories.forEach(st => {
+      const old = prevArmiesRef.current[st.id]
+      if (old != null && st.armies > old) {
+        setFlashIds(f => {
+          const nf = { ...f, [st.id]: now + 900 }
+          window.setTimeout(() => {
+            setFlashIds(ff => {
+              const g = { ...ff }
+              if (g[st.id] && g[st.id] <= Date.now()) {
+                delete g[st.id]
+              }
+              return g
+            })
+          }, 950)
+          return nf
+        })
+      }
+      nextPrev[st.id] = st.armies
+    })
+    prevArmiesRef.current = nextPrev
+  }, [territories])
 
   const { countryFeatures, projection, path, canvas, isMobile } = useMemo(() => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -102,6 +131,21 @@ export default function RealMap({ mapId, mapDefinition, territories, players, se
     return { countryFeatures: featuresArray.length ? featuresArray : [f], projection, path, canvas, isMobile: mobile }
   }, [mapId])
 
+  // Precompute Voronoi regions for territory coloring
+  const voronoiData = useMemo(() => {
+    const pts: Array<{ id: string; x: number; y: number }> = []
+    for (const t of mapDefinition.territories) {
+      if (t.lon == null || t.lat == null) continue
+      const p = projection([t.lon, t.lat]) as [number, number]
+      if (!p) continue
+      pts.push({ id: t.id, x: p[0], y: p[1] })
+    }
+    if (pts.length < 3) return null
+    const delaunay = Delaunay.from(pts, d => d.x, d => d.y)
+    const vor = delaunay.voronoi([0, 0, canvas.w, canvas.h])
+    return { pts, vor }
+  }, [mapDefinition, projection, canvas])
+
   // Center on requested territory
   useEffect(() => {
     if (!focusTerritoryId) return
@@ -122,6 +166,9 @@ export default function RealMap({ mapId, mapDefinition, territories, players, se
   const selectedFrom = selected?.from || undefined
   const fromDef = selectedFrom ? mapDefinition.territories.find(t => t.id === selectedFrom) : undefined
   const lang = (typeof document !== 'undefined' && document.documentElement.lang?.toLowerCase().startsWith('en')) ? 'en' : 'tr'
+  const ctrlSize = isMobile ? 34 : 28
+  const ctrlText = isMobile ? 18 : 16
+  const ctrlTextSmall = isMobile ? 12 : 10
 
   // Reset view on map change
   useEffect(() => {
@@ -261,6 +308,16 @@ export default function RealMap({ mapId, mapDefinition, territories, players, se
         <filter id="shadow" x="-50%" y="-50%" width="200%" height="200%">
           <feDropShadow dx="0" dy="2" stdDeviation="3" floodColor="#000000" floodOpacity="0.25" />
         </filter>
+        <filter id="region-glow" x="-50%" y="-50%" width="200%" height="200%">
+          <feDropShadow dx="0" dy="0" stdDeviation="2" floodColor="#f59e0b" floodOpacity="0.6" />
+        </filter>
+        {/* Clip all region paints to map boundary */}
+        <clipPath id={`map-clip-${mapId}`}>
+          {countryFeatures.map((cf, idx) => (
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            <path key={idx} d={path(cf as any) || undefined} />
+          ))}
+        </clipPath>
       </defs>
 
       {/* Zoom/pan container */}
@@ -269,12 +326,76 @@ export default function RealMap({ mapId, mapDefinition, territories, players, se
       <g style={{ pointerEvents: 'none' }}>
         {countryFeatures.map((cf, idx) => (
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          <path key={idx} d={path(cf as any)!} fill={mapId==='world' ? '#0b1220' : '#0b1220'} stroke="#1e293b" strokeWidth={mapId==='world' ? 0.8 : 1.5} />
+          <path key={idx} d={path(cf as any)!} fill="none" stroke="#1e293b" strokeWidth={mapId==='world' ? 0.8 : 1.2} />
         ))}
       </g>
 
+      {/* Territory regions colored by ownership (Voronoi) */}
+      {voronoiData && (
+        <>
+          {/* Fills */}
+          <g style={{ pointerEvents: 'none' }} opacity={lowEffects ? 0.22 : 0.3} clipPath={`url(#map-clip-${mapId})`}>
+            {voronoiData.pts.map((p, i) => {
+              const poly = voronoiData.vor.cellPolygon(i) as Array<[number, number]> | null
+              if (!poly || poly.length < 3) return null
+              const st = territories.find(tt => tt.id === p.id)
+              const owner = st && st.ownerId >= 0 ? players.find(pl => pl.id === st.ownerId) : null
+
+              // Recompute clickability similar to markers (simplified)
+              const isMine = st?.ownerId === currentPlayerId
+              let clickable = true
+              if (phase === 'attack') {
+                if (!selected?.from) {
+                  clickable = !!isMine && (st?.armies || 0) > 1
+                } else {
+                  const fromDefLocal = selected?.from ? mapDefinition.territories.find(t => t.id === selected.from) : undefined
+                  const isNeighbor = fromDefLocal ? fromDefLocal.neighbors.includes(p.id) : false
+                  clickable = (selected?.from === p.id) || (isNeighbor && (st?.ownerId ?? -1) !== currentPlayerId)
+                }
+              } else if (phase === 'fortify') {
+                const fromDefLocal = selected?.from ? mapDefinition.territories.find(t => t.id === selected.from) : undefined
+                const isNeighbor = fromDefLocal ? fromDefLocal.neighbors.includes(p.id) : false
+                clickable = isMine && ((st?.armies || 0) > 1 || (fromDefLocal && (selected?.from === p.id || isNeighbor)))
+              } else if (phase === 'draft') {
+                clickable = isMine
+              } else if (phase === 'placement') {
+                if (placementStage === 'claim') clickable = st?.ownerId === -1
+                else clickable = isMine
+              }
+              const inactive = !clickable
+
+              const fillBase = owner?.color || '#475569'
+              const alpha = inactive ? '26' : isMine ? '44' : '33'
+              const d = `M ${poly.map(([x, y]) => `${x},${y}`).join(' L ')} Z`
+              return (
+                <path key={p.id} d={d} fill={fillBase + alpha} stroke="none" />
+              )
+            })}
+          </g>
+          {/* Region borders (dashed, like equator lines) */}
+          <g style={{ pointerEvents: 'none' }} clipPath={`url(#map-clip-${mapId})`} filter="url(#region-glow)">
+            {voronoiData.pts.map((p, i) => {
+              const poly = voronoiData.vor.cellPolygon(i) as Array<[number, number]> | null
+              if (!poly || poly.length < 3) return null
+              const d = `M ${poly.map(([x, y]) => `${x},${y}`).join(' L ')} Z`
+              return (
+                <path
+                  key={p.id + "-border"}
+                  d={d}
+                  fill="none"
+                  stroke="#fbbf24"
+                  strokeDasharray="1 3"
+                  strokeWidth={isMobile ? 1.8 : 1.5}
+                  opacity={lowEffects ? 0.65 : 0.95}
+                />
+              )
+            })}
+          </g>
+        </>
+      )}
+
         {/* Soft continent background overlays (stronger for world to increase separation) */}
-        <g opacity={lowEffects ? 0.12 : (mapId === 'world' ? 0.28 : 0.22)} filter={lowEffects ? undefined : "url(#bg-blur)"} style={{ pointerEvents: 'none' }}>
+        <g opacity={lowEffects ? 0.14 : (mapId === 'world' ? 0.35 : 0.28)} filter={lowEffects ? undefined : "url(#bg-blur)"} style={{ pointerEvents: 'none' }}>
           {mapDefinition.continents.map(cont => (
             <g key={cont.id}>
               {mapDefinition.territories.filter(t => t.continent === cont.id).map(t => {
@@ -323,7 +444,7 @@ export default function RealMap({ mapId, mapDefinition, territories, players, se
               const dash = sameCont ? '4 3' : '6 4'
               const w = lowEffects ? (isMobile ? 1.2 : 1.0) : (isMobile ? 1.6 : 1.2)
               return (
-                <line key={`${a.id}-${b.id}`} x1={aXY[0]} y1={aXY[1]} x2={bXY[0]} y2={bXY[1]} stroke={stroke} strokeWidth={w} strokeDasharray={dash} opacity={lowEffects ? (sameCont?0.35:0.6) : (sameCont?0.55:0.8)} />
+                <line key={`${a.id}-${b.id}`} x1={aXY[0]} y1={aXY[1]} x2={bXY[0]} y2={bXY[1]} stroke={stroke} strokeWidth={w + 0.2} strokeDasharray={dash} opacity={lowEffects ? (sameCont?0.38:0.62) : (sameCont?0.6:0.85)} />
               )
             })
           ))}
@@ -359,8 +480,8 @@ export default function RealMap({ mapId, mapDefinition, territories, players, se
             const isFocused = focusTerritoryId === t.id
             const nameSmall = lang === 'en' ? 'Land' : 'Toprak'
             const nameBig = lang === 'en' ? 'Area' : 'Alan'
-            const nameFont = isMobile ? (big ? 8 : 6.8) : (mapId === 'europe' ? (big ? 10 : 8) : (big ? 11 : 9))
-            const armyFont = isMobile ? 7 : (mapId === 'europe' ? 8 : 9)
+            const nameFont = isMobile ? (big ? 6.6 : 5.4) : (mapId === 'europe' ? (big ? 9.0 : 7.0) : (big ? 10.0 : 8.0))
+            const armyFont = isMobile ? 5.8 : (mapId === 'europe' ? 7.2 : 8.0)
 
             // Clickability hint: dim non-clickables
             const isMine = state?.ownerId === currentPlayerId
@@ -402,7 +523,7 @@ export default function RealMap({ mapId, mapDefinition, territories, players, se
                  onTouchEnd={() => onTerritoryMouseUp?.(t.id)}
                  style={{ cursor: clickable ? 'pointer' : 'default', opacity: inactive ? 0.7 : 1 }}>
                 {/* invisible larger hit area */}
-                <circle cx={xy[0]} cy={xy[1]} r={isMobile ? 14 : 16} fill="transparent" />
+                <circle cx={xy[0]} cy={xy[1]} r={isMobile ? 20 : 18} fill="transparent" />
                 {isCurrentPlayers && (
                   <circle cx={xy[0]} cy={xy[1]} r={radius + 5} fill="none" stroke={(owner?.color || '#22c55e')} strokeOpacity={0.4} strokeWidth={4} />
                 )}
@@ -414,6 +535,12 @@ export default function RealMap({ mapId, mapDefinition, territories, players, se
                 )}
                 {isFocused && (
                   <circle cx={xy[0]} cy={xy[1]} r={radius + 10} fill="none" stroke="#22d3ee" strokeOpacity={0.8} strokeWidth={2.5} strokeDasharray="3 2" />
+                )}
+                {/* Army placement pop animation */}
+                {flashIds[t.id] && flashIds[t.id] > Date.now() && (
+                  <g className="animate-fade-in-scale">
+                    <circle cx={xy[0]} cy={xy[1]} r={radius + 7} fill="none" stroke={(owner?.color || '#fbbf24')} strokeOpacity={0.9} strokeWidth={2} />
+                  </g>
                 )}
                 <circle cx={xy[0]} cy={xy[1]} r={radius} fill={baseFill} stroke={strokeColor} strokeWidth={strokeWidth} filter={lowEffects ? undefined : "url(#shadow)"} />
                 {/* Name with outline for readability */}
@@ -447,10 +574,10 @@ export default function RealMap({ mapId, mapDefinition, territories, players, se
       <g transform={`translate(${canvas.w - 48} 16)`}>
         <g>
           <rect
-            x={-28}
+            x={-ctrlSize}
             y={0}
-            width={28}
-            height={28}
+            width={ctrlSize}
+            height={ctrlSize}
             rx={6}
             fill="#0b1220CC"
             stroke="#334155"
@@ -469,14 +596,14 @@ export default function RealMap({ mapId, mapDefinition, territories, players, se
             }}
             style={{ cursor: 'pointer' }}
           />
-          <text x={-14} y={18} textAnchor="middle" fontSize={16} fill="#e2e8f0">+</text>
+          <text x={-ctrlSize/2} y={ctrlSize - 10} textAnchor="middle" fontSize={ctrlText} fill="#e2e8f0">+</text>
         </g>
         <g transform="translate(0 36)">
           <rect
-            x={-28}
+            x={-ctrlSize}
             y={0}
-            width={28}
-            height={28}
+            width={ctrlSize}
+            height={ctrlSize}
             rx={6}
             fill="#0b1220CC"
             stroke="#334155"
@@ -495,14 +622,14 @@ export default function RealMap({ mapId, mapDefinition, territories, players, se
             }}
             style={{ cursor: 'pointer' }}
           />
-          <text x={-14} y={18} textAnchor="middle" fontSize={16} fill="#e2e8f0">−</text>
+          <text x={-ctrlSize/2} y={ctrlSize - 10} textAnchor="middle" fontSize={ctrlText} fill="#e2e8f0">−</text>
         </g>
         <g transform="translate(0 72)">
           <rect
-            x={-28}
+            x={-ctrlSize}
             y={0}
-            width={28}
-            height={28}
+            width={ctrlSize}
+            height={ctrlSize}
             rx={6}
             fill="#0b1220CC"
             stroke="#334155"
@@ -521,7 +648,7 @@ export default function RealMap({ mapId, mapDefinition, territories, players, se
             }}
             style={{ cursor: 'pointer' }}
           />
-          <text x={-14} y={18} textAnchor="middle" fontSize={10} fill="#e2e8f0">⟲</text>
+          <text x={-ctrlSize/2} y={ctrlSize - 12} textAnchor="middle" fontSize={ctrlTextSmall} fill="#e2e8f0">⟲</text>
         </g>
       </g>
 

@@ -35,6 +35,7 @@ export interface GameSettings {
   colorblindMode?: boolean
   sfx?: boolean
   mapVariant?: 'standard' | 'mini' | 'midi'
+  customColors?: string[]
 }
 
 export interface GameState {
@@ -134,8 +135,8 @@ export interface HistoryEntry {
 }
 
 const getInitialState = (): GameState => ({
-  selectedMap: "world",
-  mapDefinition: getMapById("world") || null,
+  selectedMap: "turkey",
+  mapDefinition: getMapById("turkey") || null,
   players: [],
   territories: [],
   phase: "setup",
@@ -377,9 +378,13 @@ export const useGameStore = create<GameState>((set, get) => ({
 
     const placementMode = placementModeOverride || state.settings.placementMode
 
-    const playerColors = state.settings.colorblindMode
-      ? ["#0072B2","#E69F00","#009E73","#CC79A7","#D55E00","#56B4E9"]
-      : ["#EF4444","#3B82F6","#10B981","#F59E0B","#8B5CF6","#EC4899"]
+    const defaultColors = ["#EF4444","#3B82F6","#10B981","#F59E0B","#8B5CF6","#EC4899"]
+    const colorblindColors = ["#0072B2","#E69F00","#009E73","#CC79A7","#D55E00","#56B4E9"]
+    let playerColors = state.settings.colorblindMode ? colorblindColors : defaultColors
+    const requested = (state.settings.customColors || []).filter(Boolean)
+    if (requested.length >= playerNames.length) {
+      playerColors = requested
+    }
 
     const players: Player[] = playerNames.map((name, i) => ({
       id: i,

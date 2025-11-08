@@ -10,6 +10,9 @@ function App() {
   const [config, setConfig] = useState<GameConfig>(loadConfig())
   const [setupComplete, setSetupComplete] = useState(false)
   const [playerNames, setPlayerNames] = useState<string[]>(["Player 1", "Player 2", "Player 3"])
+  const defaultColorsNormal = ["#EF4444","#3B82F6","#10B981","#F59E0B","#8B5CF6","#EC4899"]
+  const defaultColorsCB = ["#0072B2","#E69F00","#009E73","#CC79A7","#D55E00","#56B4E9"]
+  const [playerColors, setPlayerColors] = useState<string[]>(defaultColorsNormal)
   const [conquestArmies, setConquestArmies] = useState(1)
   const [fortifyArmies, setFortifyArmies] = useState(1)
   const [toast, setToast] = useState<string | null>(null)
@@ -32,7 +35,17 @@ function App() {
     window.addEventListener('resize', chk)
     return () => window.removeEventListener('resize', chk)
   }, [])
-  const mapHeightClass = isMobile ? 'h-[82vh]' : 'h-[90vh]'
+  // Update default palette if colorblind mode toggles before start
+  useEffect(() => {
+    setPlayerColors(config.colorblindMode ? defaultColorsCB : defaultColorsNormal)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [config.colorblindMode])
+  // Ensure store reflects default selected map on landing
+  useEffect(() => {
+    try { setMap(loadConfig().selectedMap) } catch {}
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+  const mapHeightClass = isMobile ? 'h-[90vh]' : 'h-[90vh]'
   useEffect(() => {
     // Background music only during game
     try {
@@ -142,6 +155,7 @@ function App() {
         world: "Dünya",
         turkey: "Türkiye",
         europe: "Avrupa",
+        credit: "Geliştirici: Mustafa Evleksiz",
         playerCount: "Oyuncu Sayısı",
         humanPlayers: "İnsan Oyuncu",
         playerName: "Oyuncu Adı",
@@ -164,6 +178,8 @@ function App() {
         armies: "Ordu",
         conquered: "Fethedildi!",
         moveArmies: "Ordu Taşı",
+        moveOne: "1 Taşı",
+        moveAll: "Tümünü Taşı",
         attackerDice: "Saldıran Zar",
         defenderDice: "Savunan Zar",
         roll: "Zar At",
@@ -182,7 +198,16 @@ function App() {
         high: "Bol",
         cards: "Kartlar",
         redeem3: "3 kartı bozdur (6 ordu)",
-        need3: "En az 3 kart gerek"
+        need3: "En az 3 kart gerek",
+        loadingMap: "Harita yükleniyor...",
+        noMap: "Harita seçilmedi",
+        go: "Git",
+        clear: "Temizle",
+        allIn: "All‑in",
+        territoriesWord: "bölge",
+        attacker: "Saldıran",
+        defender: "Savunan",
+        resultLabel: "Sonuç"
       },
       en: {
         title: "RISK - World Domination",
@@ -191,6 +216,7 @@ function App() {
         world: "World",
         turkey: "Türkiye",
         europe: "Europe",
+        credit: "Developed by Mustafa Evleksiz",
         playerCount: "Player Count",
         humanPlayers: "Human Players",
         playerName: "Player Name",
@@ -213,6 +239,8 @@ function App() {
         armies: "Armies",
         conquered: "Conquered!",
         moveArmies: "Move Armies",
+        moveOne: "Move 1",
+        moveAll: "Move All",
         attackerDice: "Attacker Dice",
         defenderDice: "Defender Dice",
         roll: "Roll",
@@ -231,7 +259,16 @@ function App() {
         high: "High",
         cards: "Cards",
         redeem3: "Redeem 3 cards (6 armies)",
-        need3: "Need at least 3 cards"
+        need3: "Need at least 3 cards",
+        loadingMap: "Loading map...",
+        noMap: "No map selected",
+        go: "Go",
+        clear: "Clear",
+        allIn: "All‑in",
+        territoriesWord: "territories",
+        attacker: "Attacker",
+        defender: "Defender",
+        resultLabel: "Result"
       }
     }
     return (lang: 'tr' | 'en') => (key: string) => {
@@ -395,7 +432,8 @@ function App() {
       lowEffects: !!config.lowEffects,
       colorblindMode: !!config.colorblindMode,
       sfx: !!config.sfx,
-      mapVariant: (config.mapVariant || 'standard') as any
+      mapVariant: (config.mapVariant || 'standard') as any,
+      customColors: playerColors.slice(0, config.playerCount)
     })
     setMap(config.selectedMap)
     setTimeout(() => {
@@ -418,7 +456,7 @@ function App() {
         <div className="absolute top-4 left-0 right-0 px-4">
           <div className="max-w-xl mx-auto flex items-center justify-between">
             <div className="text-slate-400 text-xs">
-              {config.language === 'tr' ? 'Sürüm' : 'Version'} 1.1.2
+              {config.language === 'tr' ? 'Sürüm' : 'Version'} 1.1.7
             </div>
             <div className="flex items-center gap-2">
               <div className="bg-slate-800/60 border border-slate-700/60 rounded-xl p-1">
@@ -461,13 +499,31 @@ function App() {
           animate={{ opacity: 1, y: 0 }}
           className="max-w-xl w-full"
         >
-          <div className="text-center mb-8">
-            <img src="/logos/logo.svg" alt="World Domination" className="mx-auto mb-2" style={{ width: isMobile ? 40 : 56, height: isMobile ? 40 : 56 }} />
+          <div className="text-center mb-6">
+            <div className="relative mx-auto mb-2 w-min">
+              <div className="absolute -inset-2 rounded-full blur-md opacity-70 animate-glow" style={{ background: 'linear-gradient(135deg, #10B98155, #3B82F655, #8B5CF655)' }} aria-hidden />
+              <img src="/logos/logo.svg" alt="World Domination" className="mx-auto animate-fade-in-scale" style={{ width: isMobile ? 44 : 64, height: isMobile ? 44 : 64, filter: 'drop-shadow(0 4px 12px rgba(0,0,0,0.4))' }} />
+            </div>
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-xs mb-3 animate-fade-in-up">
               🌍 {config.language==='tr' ? 'Strateji • Çok oyunculu • Yapay Zekâ' : 'Strategy • Multiplayer • AI'}
             </div>
-            <h1 className="text-4xl font-extrabold gradient-text tracking-tight mb-1">{tr('title')}</h1>
-            <p className="text-slate-300 text-base">{tr('setupTitle')}</p>
+            <h1 className="text-3xl md:text-4xl font-extrabold gradient-text tracking-tight mb-1">{tr('title')}</h1>
+            <p className="text-slate-300 text-sm md:text-base">{tr('setupTitle')}</p>
+          </div>
+          {/* Feature highlights */}
+          <div className="grid grid-cols-3 gap-2 max-w-xl mx-auto mb-3">
+            <div className="glass rounded-xl px-3 py-2 text-center border border-emerald-500/20">
+              <div className="text-lg">⚡</div>
+              <div className="text-[11px] text-slate-300">{config.language==='tr' ? 'Hızlı Oyna' : 'Quick Play'}</div>
+            </div>
+            <div className="glass rounded-xl px-3 py-2 text-center border border-blue-500/20">
+              <div className="text-lg">🗺️</div>
+              <div className="text-[11px] text-slate-300">{config.language==='tr' ? 'Çoklu Harita' : 'Multi‑Map'}</div>
+            </div>
+            <div className="glass rounded-xl px-3 py-2 text-center border border-purple-500/20">
+              <div className="text-lg">🤖</div>
+              <div className="text-[11px] text-slate-300">{config.language==='tr' ? 'Yapay Zekâ' : 'Smart AI'}</div>
+            </div>
           </div>
           
           <div className="bg-slate-800/50 backdrop-blur-xl rounded-2xl border border-slate-700/50 p-6 space-y-5 card">
@@ -552,26 +608,39 @@ function App() {
               </div>
                 </div>
 
-            {/* Player Names */}
+            {/* Player Names + Colors */}
             <div>
               <label className="block text-sm font-semibold text-amber-300 mb-3 uppercase tracking-wide">
                 ✏️ {tr('playerName')}
                           </label>
                           <div className="space-y-2">
-                {playerNames.slice(0, config.playerCount).map((name, i) => (
-                  <input
-                    key={i}
-                    type="text"
-                    value={name}
-                    onChange={(e) => {
-                      const newNames = [...playerNames]
-                      newNames[i] = e.target.value
-                      setPlayerNames(newNames)
-                    }}
-                    className="w-full px-4 py-2 rounded-lg bg-slate-700/50 border border-slate-600 text-white focus:border-emerald-400 focus:ring-2 focus:ring-emerald-400/20 outline-none"
-                    placeholder={`Player ${i + 1}`}
-                  />
-                            ))}
+                {Array.from({ length: config.playerCount }).map((_, i) => (
+                  <div key={i} className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      value={playerNames[i] || `Player ${i + 1}`}
+                      onChange={(e) => {
+                        const newNames = [...playerNames]
+                        newNames[i] = e.target.value
+                        setPlayerNames(newNames)
+                      }}
+                      className="flex-1 px-4 py-2 rounded-lg bg-slate-700/50 border border-slate-600 text-white focus:border-emerald-400 focus:ring-2 focus:ring-emerald-400/20 outline-none"
+                      placeholder={`Player ${i + 1}`}
+                    />
+                    <input
+                      type="color"
+                      value={playerColors[i] || (config.colorblindMode ? defaultColorsCB[i % defaultColorsCB.length] : defaultColorsNormal[i % defaultColorsNormal.length])}
+                      onChange={(e) => {
+                        const next = [...playerColors]
+                        next[i] = e.target.value
+                        setPlayerColors(next)
+                      }}
+                      className="w-10 h-10 rounded-lg border border-slate-600 bg-transparent p-0 cursor-pointer"
+                      aria-label={`Player ${i + 1} color`}
+                      title={`Player ${i + 1} color`}
+                    />
+                  </div>
+                ))}
                           </div>
                     </div>
 
@@ -682,6 +751,10 @@ function App() {
               🎯 {tr('startGame')}
                       </button>
                     </div>
+          {/* Subtle footer credit */}
+          <div className="text-center text-[10px] text-slate-400/40 mt-4 select-none">
+            {tr('credit')}
+          </div>
         </motion.div>
                   </div>
     )
@@ -749,7 +822,7 @@ function App() {
   // Game screen
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-4">
-      <div className="max-w-[1800px] mx-auto">
+      <div className="max-w-[2000px] mx-auto">
         {/* Header */}
         <div className="bg-slate-800/50 backdrop-blur-xl rounded-2xl border border-slate-700/50 p-4 mb-4">
           <div className="flex justify-between items-center">
@@ -773,45 +846,104 @@ function App() {
               >
                 {tr('title')}
               </h1>
-              <div className="flex items-center gap-2">
-                <p className="text-slate-400">
-                  {getMapById(selectedMap)?.name} • {tr('turn')} {turn}
-                </p>
-                {/* Phase chip */}
-                <span
-                  className="text-xs px-2.5 py-1 rounded-xl shadow border backdrop-blur"
-                  style={{
-                    borderColor: (currentPlayer?.color || '#64748b') + '66',
-                    background: `linear-gradient(135deg, ${(currentPlayer?.color || '#64748b')}22, #0b1220aa)`,
-                    color: currentPlayer?.color || '#94a3b8'
-                  }}
-                >
-                  {phase === 'placement' ? '🧭 ' + tr('reinforcementPhase') : phase === 'draft' ? '➕ ' + tr('draftPhase') : phase === 'attack' ? '⚔️ ' + tr('attackPhase') : '🛡️ ' + tr('fortifyPhase')}
-                </span>
+              <div className="flex flex-col gap-1">
+                <div className="flex items-center gap-2">
+                  <p className="text-slate-400">
+                    {getMapById(selectedMap)?.name} • {tr('turn')} {turn}
+                  </p>
+                  {/* Phase chip */}
+                  <span
+                    className="text-xs px-2.5 py-1 rounded-xl shadow border backdrop-blur"
+                    style={{
+                      borderColor: (currentPlayer?.color || '#64748b') + '66',
+                      background: `linear-gradient(135deg, ${(currentPlayer?.color || '#64748b')}22, #0b1220aa)`,
+                      color: currentPlayer?.color || '#94a3b8'
+                    }}
+                  >
+                    {phase === 'placement' ? '🧭 ' + tr('reinforcementPhase') : phase === 'draft' ? '➕ ' + tr('draftPhase') : phase === 'attack' ? '⚔️ ' + tr('attackPhase') : '🛡️ ' + tr('fortifyPhase')}
+                  </span>
+                </div>
+                {/* Phase progress bar */}
+                {(() => {
+                  const order: Array<'placement'|'draft'|'attack'|'fortify'> = ['placement','draft','attack','fortify']
+                  const idx = Math.max(0, order.indexOf((phase as any) || 'placement'))
+                  const pct = ((idx + 1) / order.length) * 100
+                  return (
+                    <div className="h-1 w-56 bg-slate-700/50 rounded-full overflow-hidden">
+                      <motion.div
+                        initial={{ width: 0 }}
+                        animate={{ width: `${pct}%` }}
+                        transition={{ type: 'spring', stiffness: 140, damping: 18 }}
+                        className="h-full rounded-full"
+                        style={{ background: `linear-gradient(90deg, ${(currentPlayer?.color || '#22c55e')} 0%, #3B82F6 100%)` }}
+                      />
+                    </div>
+                  )
+                })()}
               </div>
             </div>
 
             {currentPlayer && (
               <div className="flex items-center gap-4">
-                <div className="text-right">
-                  <div className="text-sm text-slate-400">{tr('currentPlayer')}</div>
-                  <div className="text-xl font-bold text-white flex items-center gap-2">
-                    {currentPlayer.name}
-                    <span className="text-[10px] px-2 py-1 rounded-full" style={{ backgroundColor: (currentPlayer.color || '#64748b') + '33', color: currentPlayer.color }}>
-                      {(currentPlayer.cards?.length || 0)} cards
-                    </span>
-                    {!currentPlayer.isHuman && (
-                      <span className="text-xs px-2 py-1 bg-purple-500/20 text-purple-300 rounded">
-                        🤖 AI
-                      </span>
-                    )}
-              </div>
-              </div>
-                <div
-                  className="w-16 h-16 rounded-full border-4 animate-pulse"
-                  style={{ borderColor: currentPlayer.color, backgroundColor: currentPlayer.color + '40' }}
-                />
-                <div className="flex flex-col gap-2">
+                {/* Current player deluxe card */}
+                <div className="relative">
+                  <div
+                    className="absolute -inset-1 rounded-2xl blur-lg opacity-70"
+                    style={{ background: `linear-gradient(135deg, ${turnColor}44, #0ea5e944)` }}
+                    aria-hidden
+                  />
+                  <div className="relative bg-slate-900/60 border border-slate-700/70 rounded-2xl px-3 py-3 sm:px-4 sm:py-4 flex items-center gap-3 sm:gap-4">
+                    {/* Avatar with animated ring */}
+                    <div className="relative w-14 h-14 sm:w-16 sm:h-16">
+                      <div
+                        className="absolute inset-0 rounded-full animate-ping"
+                        style={{ backgroundColor: (currentPlayer.color || '#22c55e') + '22' }}
+                        aria-hidden
+                      />
+                      <div
+                        className="relative w-full h-full rounded-full border-4 grid place-items-center shadow-lg"
+                        style={{ borderColor: currentPlayer.color, backgroundColor: (currentPlayer.color || '#22c55e') + '26' }}
+                      >
+                        <span className="text-white font-extrabold text-lg sm:text-xl">
+                          {(currentPlayer.name || 'P').slice(0,1).toUpperCase()}
+                        </span>
+                      </div>
+                    </div>
+                    {/* Info */}
+                    <div className="min-w-[160px]">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-[10px] uppercase tracking-wide text-slate-400">{tr('currentPlayer')}</span>
+                        <span className="text-[10px] px-2 py-0.5 rounded-full border" style={{ borderColor: (turnColor) + '66', color: turnColor, backgroundColor: (turnColor) + '14' }}>
+                          {tr('turn')} {turn}
+                        </span>
+                      </div>
+                      <div className="text-white font-extrabold leading-tight text-lg sm:text-xl">
+                        {currentPlayer.name}
+                      </div>
+                      <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                        <span className="text-[10px] px-2 py-0.5 rounded-full" style={{ backgroundColor: (currentPlayer.color || '#64748b') + '26', color: currentPlayer.color }}>
+                          {(currentPlayer.cards?.length || 0)} {tr('cards')}
+                        </span>
+                        {!currentPlayer.isHuman && (
+                          <span className="text-[10px] px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300">
+                            🤖 AI
+                          </span>
+                        )}
+                        {(() => {
+                          const tc = territories.filter(t => t.ownerId === currentPlayer.id).length
+                          const ac = territories.filter(t => t.ownerId === currentPlayer.id).reduce((s, t) => s + t.armies, 0)
+                          return (
+                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-700/60 text-slate-200">
+                              {tc} {config.language==='tr' ? 'bölge' : 'terr.'} • {ac} {config.language==='tr' ? 'asker' : 'armies'}
+                            </span>
+                          )
+                        })()}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                {/* Quick actions */}
+                <div className="hidden sm:flex flex-col gap-2">
                   <div className="flex gap-2">
                     <button
                       onClick={() => {
@@ -845,7 +977,7 @@ function App() {
           <div className="lg:col-span-4 xl:col-span-5">
             <div className="bg-slate-800/50 backdrop-blur-xl rounded-2xl border border-slate-700/50 p-4">
               <h2 className="text-xl font-bold text-white mb-4">
-                {getMapById(selectedMap)?.name} • {territories.length} bölge
+                {getMapById(selectedMap)?.name} • {territories.length} {tr('territoriesWord')}
               </h2>
               {/* Territory search */}
               {mapDefinition && (
@@ -877,14 +1009,14 @@ function App() {
                     }}
                     className="px-3 py-2 text-sm rounded bg-emerald-600 text-white hover:bg-emerald-700"
                   >
-                    {config.language==='tr' ? 'Git' : 'Go'}
+                    {tr('go')}
                   </button>
                   {focusId && (
                     <button
                       onClick={() => setFocusId(null)}
                       className="px-3 py-2 text-sm rounded bg-slate-700 text-white hover:bg-slate-600"
                     >
-                      {config.language==='tr' ? 'Temizle' : 'Clear'}
+                      {tr('clear')}
                     </button>
                   )}
                 </div>
@@ -1007,12 +1139,12 @@ function App() {
                   />
                 ) : (
                   <div className="flex items-center justify-center h-full">
-                    <div className="text-slate-400">Loading map...</div>
+                    <div className="text-slate-400">{tr('loadingMap')}</div>
             </div>
                 )
               ) : (
                 <div className="flex items-center justify-center h-full">
-                  <div className="text-slate-400">No map selected</div>
+                  <div className="text-slate-400">{tr('noMap')}</div>
                     </div>
               )}
 
@@ -1023,7 +1155,7 @@ function App() {
                   {phase === 'attack' && attackFrom && attackTo && !lastBattleResult && (
                     <div className="pointer-events-auto bg-slate-900/70 backdrop-blur border border-slate-700/60 rounded-xl shadow-xl flex gap-2 px-3 py-2">
                       {config.instantMode ? (
-                        <button
+                        <motion.button
                           onClick={() => {
                             let loopGuard = 0
                             let totalA = 0
@@ -1044,12 +1176,13 @@ function App() {
                             if (!conquered) { useGameStore.setState({ lastBattleResult: { attackerLosses: totalA, defenderLosses: totalD, conquered: false } as any }) }
                           }}
                           className="px-3 py-2 text-xs bg-amber-500 text-white rounded-lg shadow hover:bg-amber-600"
+                          whileTap={{ scale: 0.96 }}
                         >
-                          ⚡ Attack
-                        </button>
+                          ⚔️ {tr('attack')}
+                        </motion.button>
                       ) : (
                         <>
-                          <button
+                          <motion.button
                             onClick={() => {
                               const fs = getTerritoryState(attackFrom!)
                               const ts = getTerritoryState(attackTo!)
@@ -1057,10 +1190,11 @@ function App() {
                               executeAttack(Math.min(3, fs.armies - 1), Math.min(2, ts.armies))
                             }}
                             className="px-3 py-2 text-xs bg-red-500 text-white rounded-lg shadow hover:bg-red-600"
+                            whileTap={{ scale: 0.96 }}
                           >
-                            ⚔️ Attack
-                          </button>
-                          <button
+                            ⚔️ {tr('attack')}
+                          </motion.button>
+                          <motion.button
                             onClick={() => {
                               let loopGuard = 0, totalA = 0, totalD = 0, conquered = false
                               while (loopGuard < 200) {
@@ -1076,19 +1210,20 @@ function App() {
                               if (!conquered) { useGameStore.setState({ lastBattleResult: { attackerLosses: totalA, defenderLosses: totalD, conquered: false } as any }) }
                             }}
                             className="px-3 py-2 text-xs bg-amber-500 text-white rounded-lg shadow hover:bg-amber-600"
+                            whileTap={{ scale: 0.96 }}
                           >
-                            ⚡ All‑in
-                          </button>
+                            ⚡ {tr('allIn')}
+                          </motion.button>
                         </>
                       )}
-                      <button onClick={endAttackPhase} className="px-3 py-2 text-xs bg-slate-600 text-white rounded-lg shadow hover:bg-slate-700">End Attack</button>
+                      <motion.button onClick={endAttackPhase} className="px-3 py-2 text-xs bg-slate-600 text-white rounded-lg shadow hover:bg-slate-700" whileTap={{ scale: 0.96 }}>{tr('endAttack')}</motion.button>
                     </div>
                   )}
                   {/* Conquest move */}
                   {phase === 'attack' && lastBattleResult?.conquered && attackFrom && (
                     <div className="pointer-events-auto bg-slate-900/70 backdrop-blur border border-slate-700/60 rounded-xl shadow-xl flex gap-2 px-3 py-2">
-                      <button onClick={() => { conquestMove(1); setConquestArmies(1) }} className="px-3 py-2 text-xs bg-emerald-600 text-white rounded-lg shadow hover:bg-emerald-700">Move 1</button>
-                      <button onClick={() => { const maxMove = Math.max(1, (getTerritoryState(attackFrom!)?.armies || 1) - 1); conquestMove(maxMove); setConquestArmies(1) }} className="px-3 py-2 text-xs bg-emerald-700 text-white rounded-lg shadow hover:bg-emerald-800">Move All</button>
+                      <motion.button whileTap={{ scale: 0.96 }} onClick={() => { conquestMove(1); setConquestArmies(1) }} className="px-3 py-2 text-xs bg-emerald-600 text-white rounded-lg shadow hover:bg-emerald-700">{tr('moveOne')}</motion.button>
+                      <motion.button whileTap={{ scale: 0.96 }} onClick={() => { const maxMove = Math.max(1, (getTerritoryState(attackFrom!)?.armies || 1) - 1); conquestMove(maxMove); setConquestArmies(1) }} className="px-3 py-2 text-xs bg-emerald-700 text-white rounded-lg shadow hover:bg-emerald-800">{tr('moveAll')}</motion.button>
                     </div>
                   )}
                   {/* Fortify */}
@@ -1096,11 +1231,11 @@ function App() {
                     <div className="pointer-events-auto bg-slate-900/70 backdrop-blur border border-slate-700/60 rounded-xl shadow-xl flex gap-2 px-3 py-2">
                       {fortifyFrom && fortifyTo && (
                         <>
-                          <button onClick={() => { executeFortify(fortifyArmies); setFortifyArmies(1) }} className="px-3 py-2 text-xs bg-blue-500 text-white rounded-lg shadow hover:bg-blue-600">Fortify</button>
-                          <button onClick={() => { const maxMove = Math.max(1, (getTerritoryState(fortifyFrom!)?.armies || 1) - 1); executeFortify(maxMove); setFortifyArmies(1) }} className="px-3 py-2 text-xs bg-blue-700 text-white rounded-lg shadow hover:bg-blue-800">Fortify All</button>
+                          <motion.button whileTap={{ scale: 0.96 }} onClick={() => { executeFortify(fortifyArmies); setFortifyArmies(1) }} className="px-3 py-2 text-xs bg-blue-500 text-white rounded-lg shadow hover:bg-blue-600">{tr('fortify')}</motion.button>
+                          <motion.button whileTap={{ scale: 0.96 }} onClick={() => { const maxMove = Math.max(1, (getTerritoryState(fortifyFrom!)?.armies || 1) - 1); executeFortify(maxMove); setFortifyArmies(1) }} className="px-3 py-2 text-xs bg-blue-700 text-white rounded-lg shadow hover:bg-blue-800">{tr('fortify')} All</motion.button>
                         </>
                       )}
-                      <button onClick={() => executeFortify(0)} className="px-3 py-2 text-xs bg-slate-600 text-white rounded-lg shadow hover:bg-slate-700">End Turn</button>
+                      <motion.button whileTap={{ scale: 0.96 }} onClick={() => executeFortify(0)} className="px-3 py-2 text-xs bg-slate-600 text-white rounded-lg shadow hover:bg-slate-700">{tr('endTurn')}</motion.button>
                     </div>
                   )}
                 </div>
@@ -1382,10 +1517,10 @@ function App() {
                 
                   {lastBattleResult && !lastBattleResult.conquered && (
                     <div className="p-3 bg-slate-700/50 rounded-lg text-center space-y-2">
-                      <div className="text-xs text-slate-400">Sonuç</div>
+                      <div className="text-xs text-slate-400">{tr('resultLabel')}</div>
                       <div className="flex items-center justify-center gap-4">
                         <div>
-                          <div className="text-[10px] text-slate-400">Attacker</div>
+                          <div className="text-[10px] text-slate-400">{tr('attacker')}</div>
                           <div className="flex gap-1 justify-center">
                             {(lastBattleResult.attackerRolls || []).map((r, i) => (
                               <span key={i} className="px-2 py-1 rounded bg-red-600/30 border border-red-400/40 text-white text-xs">{r}</span>
@@ -1393,7 +1528,7 @@ function App() {
                     </div>
                     </div>
                         <div>
-                          <div className="text-[10px] text-slate-400">Defender</div>
+                          <div className="text-[10px] text-slate-400">{tr('defender')}</div>
                           <div className="flex gap-1 justify-center">
                             {(lastBattleResult.defenderRolls || []).map((r, i) => (
                               <span key={i} className="px-2 py-1 rounded bg-blue-600/30 border border-blue-400/40 text-white text-xs">{r}</span>

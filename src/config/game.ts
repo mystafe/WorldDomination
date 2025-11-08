@@ -35,7 +35,10 @@ export const loadConfig = (): GameConfig => {
     const saved = localStorage.getItem(CONFIG_KEY)
     if (saved) {
       const parsed = JSON.parse(saved)
-      return { ...defaultConfig, ...parsed }
+      const merged = { ...defaultConfig, ...parsed }
+      // Force default map to Türkiye as requested
+      merged.selectedMap = 'turkey'
+      return merged
     }
   } catch (error) {
     console.warn("Failed to load config:", error)
