@@ -147,18 +147,7 @@ export default function RealMap({
         f = fallbackGeom
         featuresArray = []
       }
-      try {
-        // draw boundaries where adjoining countries have different 'continent'
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const m = (world && world.objects)
-          ? topoMesh(world, (world.objects as any).countries, (a: any, b: any) => {
-              return !!(a && b) && a.properties && b.properties && a.properties.continent !== b.properties.continent
-            })
-          : null
-        boundaryGeom = m || null
-      } catch {
-        boundaryGeom = null
-      }
+      // removed regional boundary mesh (visual hint disabled)
     } else if (mapId === 'turkey') {
       // Use Türkiye feature if available; else fallback to Sphere until loaded
       if (countries.features && countries.features.length) {
@@ -194,40 +183,7 @@ export default function RealMap({
         }
         f = { type: 'MultiPolygon', coordinates: multipolyCoords }
         featuresArray = europeFeatures
-        // compute regional boundaries for Europe along real country borders using current mapDefinition
-        try {
-          const euIds = new Set(europeFeatures.map((ef: any) => ef.id))
-          const toKey = (s: string) => {
-            let k = (s || '').toLowerCase()
-            try { k = k.normalize('NFD').replace(/[\u0300-\u036f]/g, '') } catch {}
-            k = k.replace(/ğ/g, 'g').replace(/ş/g, 's').replace(/ı/g, 'i').replace(/ç/g, 'c').replace(/ö/g, 'o').replace(/ü/g, 'u')
-            k = k.replace(/[^a-z ]+/g, '').trim()
-            if (k === 'czech republic') k = 'czechia'
-            if (k === 'turkiye' || k === 'tuerkiye') k = 'turkey'
-            return k
-          }
-          const regionByName = new Map<string, string>()
-          for (const t of (mapDefinition?.territories ?? [])) {
-            regionByName.set(toKey(t.name), t.continent)
-          }
-          const mesh = (world && world.objects)
-            ? (topoMesh as any)(
-                world,
-                (world as any).objects.countries,
-                (a: any, b: any) => {
-                  if (!a || !b) return false
-                  if (!euIds.has(a.id) || !euIds.has(b.id)) return false
-                  const ra = regionByName.get(toKey(a.properties?.name || ''))
-                  const rb = regionByName.get(toKey(b.properties?.name || ''))
-                  if (!ra || !rb) return false
-                  return ra !== rb
-                }
-              )
-            : null
-          if (mesh) boundaryGeom = mesh
-        } catch {
-          // ignore; fall back to soft silhouettes
-        }
+        // regional mesh removed (visual hint disabled)
       } else {
         f = fallbackGeom
         featuresArray = []
