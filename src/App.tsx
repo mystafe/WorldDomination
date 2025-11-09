@@ -45,7 +45,7 @@ function App() {
     try { setMap(loadConfig().selectedMap) } catch {}
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
-  const mapHeightClass = isMobile ? 'h-[50vh]' : 'h-[90vh]'
+  const mapHeightClass = isMobile ? 'h-[48vh]' : 'h-[90vh]'
   useEffect(() => {
     // Background music only during game
     try {
@@ -847,8 +847,31 @@ function App() {
 
             {currentPlayer && (
               <div className="flex items-center gap-4">
-                {/* Current player deluxe card */}
-                <div className="relative">
+                {/* Mobile compact player card */}
+                <div className="sm:hidden">
+                  <div className="relative bg-slate-900/60 border border-slate-700/70 rounded-xl px-2 py-2 flex items-center gap-2 max-w-[72vw]">
+                    <div className="w-8 h-8 rounded-full border-2 grid place-items-center shadow"
+                      style={{ borderColor: currentPlayer.color, backgroundColor: (currentPlayer.color || '#22c55e') + '26' }}>
+                      <span className="text-white font-bold text-xs">
+                        {(currentPlayer.name || 'P').slice(0,1).toUpperCase()}
+                      </span>
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="text-[10px] uppercase tracking-wide text-slate-400">{tr('currentPlayer')}</div>
+                      <div className="text-white font-bold leading-tight text-sm truncate">
+                        {currentPlayer.name}
+                      </div>
+                    </div>
+                    <span
+                      className="text-[10px] px-1.5 py-0.5 rounded-full border shrink-0"
+                      style={{ borderColor: (turnColor) + '66', color: turnColor, backgroundColor: (turnColor) + '14' }}
+                    >
+                      {tr('turn')} {turn}
+                    </span>
+                  </div>
+                </div>
+                {/* Desktop/tablet deluxe card */}
+                <div className="relative hidden sm:block">
                   <div
                     className="absolute -inset-1 rounded-2xl blur-lg opacity-70"
                     style={{ background: `linear-gradient(135deg, ${turnColor}44, #0ea5e944)` }}
@@ -1075,6 +1098,18 @@ function App() {
                       const maxMove = Math.max(1, (getTerritoryState(fortifyFrom)?.armies || 1) - 1)
                       executeFortify(maxMove)
                       setFortifyArmies(1)
+                    }}
+                    onConquestOne={() => {
+                      if (!attackFrom) return
+                      conquestMove(1)
+                      setConquestArmies(1)
+                    }}
+                    onConquestAll={() => {
+                      if (!attackFrom) return
+                      const maxMove = Math.max(1, (getTerritoryState(attackFrom)?.armies || 1) - 1)
+                      setConquestArmies(maxMove)
+                      conquestMove(maxMove)
+                      setConquestArmies(1)
                     }}
                     onTerritoryClick={(territoryId) => {
                       // Avoid placement/draft double placement via click; handled by hold/mouseup

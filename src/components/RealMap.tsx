@@ -30,6 +30,9 @@ interface RealMapProps {
   // optional compact fortify actions rendered on-map
   onFortifyOne?: () => void
   onFortifyAll?: () => void
+  // optional compact conquest move actions rendered on-map
+  onConquestOne?: () => void
+  onConquestAll?: () => void
 }
 
 export default function RealMap({
@@ -52,7 +55,9 @@ export default function RealMap({
   onEndAttack,
   lastBattleResult,
   onFortifyOne,
-  onFortifyAll
+  onFortifyAll,
+  onConquestOne,
+  onConquestAll
 }: RealMapProps) {
   const svgRef = useRef<SVGSVGElement | null>(null)
   const [transform, setTransform] = useState<{ scale: number; tx: number; ty: number }>({ scale: 1, tx: 0, ty: 0 })
@@ -63,6 +68,8 @@ export default function RealMap({
   const [showHelp, setShowHelp] = useState(false)
   const [minimapActive, setMinimapActive] = useState(true)
   const minimapTimerRef = useRef<number | null>(null)
+  // TR province boundaries overlay (TopJSON-driven)
+  const [trProvinceMesh, setTrProvinceMesh] = useState<any | null>(null)
   // Track army placement increases for pop animation
   const prevArmiesRef = useRef<Record<string, number>>({})
   const [flashIds, setFlashIds] = useState<Record<string, number>>({})
@@ -70,6 +77,26 @@ export default function RealMap({
     const t = window.setTimeout(() => setMinimapActive(false), 1200)
     return () => window.clearTimeout(t)
   }, [])
+  // Load Turkey province boundaries TopoJSON (optional, fail-safe)
+  useEffect(() => {
+    let cancelled = false
+    if (mapId !== 'turkey') { setTrProvinceMesh(null); return }
+    ;(async () => {
+      try {
+        const res = await fetch('/geo/tr-provinces.topo.json', { cache: 'force-cache' })
+        if (!res.ok) return
+        const topo = await res.json()
+        // try common object keys
+        const obj = (topo.objects && (topo.objects.provinces || topo.objects.admin || topo.objects.collection || Object.values(topo.objects)[0])) || null
+        if (!obj) return
+        const mesh = (topoMesh as any)(topo, obj, (a: any, b: any) => a !== b)
+        if (!cancelled) setTrProvinceMesh(mesh || null)
+      } catch {
+        if (!cancelled) setTrProvinceMesh(null)
+      }
+    })()
+    return () => { cancelled = true }
+  }, [mapId])
   // Detect increases
   useEffect(() => {
     const now = Date.now()
@@ -443,10 +470,15 @@ export default function RealMap({
           <path key={idx} d={path(cf as any)!} fill="none" stroke="#1e293b" strokeOpacity={0.25} strokeWidth={mapId==='world' ? 0.6 : 0.9} />
         ))}
       </g>
-      {/* Real continent boundaries along country borders (world only) */}
-      {mapId === 'world' && boundary && (
+      {/* Real region boundaries along country borders (world/europe) */}
+      {(mapId === 'world' || mapId === 'europe') && boundary && (
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         <path d={path(boundary as any) || undefined} fill="none" stroke="#8B5CF6" strokeOpacity={0.6} strokeDasharray="2 6" strokeWidth={isMobile ? 2.2 : 1.8} />
+      )}
+      {/* Turkey province boundaries (from TopoJSON, optional) */}
+      {mapId === 'turkey' && trProvinceMesh && (
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        <path d={path(trProvinceMesh as any) || undefined} fill="none" stroke="#8B5CF6" strokeOpacity={0.65} strokeDasharray="3 6" strokeWidth={isMobile ? 2.2 : 1.8} />
       )}
 
       {/* Territory regions colored by ownership (Voronoi) */}
@@ -708,8 +740,16 @@ export default function RealMap({
         const mx = (fa[0] + ta[0]) / 2
         const my = (fa[1] + ta[1]) / 2
         const w = 150, h = 34
+        // Visible content bounds in content coords
+        const x0 = (-transform.tx) / transform.scale
+        const x1 = (canvas.w - transform.tx) / transform.scale
+        const y0 = (-transform.ty) / transform.scale
+        const y1 = (canvas.h - transform.ty) / transform.scale
+        const clamp = (v: number, mn: number, mx: number) => Math.max(mn, Math.min(mx, v))
+        const bx = clamp(mx - w/2, x0 + 8, x1 - (w + 8))
+        const by = clamp(my - h - 16, y0 + 8, y1 - (h + 8))
         return (
-          <g transform={`translate(${mx - w/2} ${my - h - 16})`} style={{ pointerEvents: 'auto' }}>
+          <g transform={`translate(${bx} ${by})`} style={{ pointerEvents: 'auto' }}>
             <rect x={0} y={0} width={w} height={h} rx={10} fill="#0b1220EE" stroke="#334155" />
             <g transform="translate(8 7)">
               <g onClick={onAttackOnce} style={{ cursor: onAttackOnce ? 'pointer' : 'default' }}>
@@ -723,6 +763,45 @@ export default function RealMap({
               <g transform="translate(104 0)" onClick={onEndAttack} style={{ cursor: onEndAttack ? 'pointer' : 'default' }}>
                 <rect x={0} y={-6} width={40} height={24} rx={8} fill="#334155" opacity="0.9" />
                 <text x={20} y="10" textAnchor="middle" fontSize="10" fill="#e2e8f0">⏹</text>
+              </g>
+            </g>
+          </g>
+        )
+      })()}
+
+      {/* Compact on-map conquest actions bubble */}
+      {(() => {
+        const fromId = (typeof selectedFrom === 'string') ? selectedFrom : undefined
+        const toId = (typeof (selected?.to) === 'string') ? (selected as { to: string }).to : undefined
+        if (phase !== 'attack' || !lastBattleResult?.conquered || !fromId || !toId) return null
+        const fromDef2 = mapDefinition.territories.find(tt => tt.id === fromId)
+        const toDef2 = mapDefinition.territories.find(tt => tt.id === toId)
+        if (!fromDef2 || !toDef2) return null
+        const fa = (fromDef2.lon != null && fromDef2.lat != null) ? (projection([fromDef2.lon, fromDef2.lat]) as [number, number]) : null
+        const ta = (toDef2.lon != null && toDef2.lat != null) ? (projection([toDef2.lon, toDef2.lat]) as [number, number]) : null
+        if (!fa || !ta) return null
+        const mx = (fa[0] + ta[0]) / 2
+        const my = (fa[1] + ta[1]) / 2
+        const w = 150, h = 34
+        // Visible content bounds in content coords
+        const x0 = (-transform.tx) / transform.scale
+        const x1 = (canvas.w - transform.tx) / transform.scale
+        const y0 = (-transform.ty) / transform.scale
+        const y1 = (canvas.h - transform.ty) / transform.scale
+        const clamp = (v: number, mn: number, mx: number) => Math.max(mn, Math.min(mx, v))
+        const bx = clamp(mx - w/2, x0 + 8, x1 - (w + 8))
+        const by = clamp(my - h - 16, y0 + 8, y1 - (h + 8))
+        return (
+          <g transform={`translate(${bx} ${by})`} style={{ pointerEvents: 'auto' }}>
+            <rect x={0} y={0} width={w} height={h} rx={10} fill="#0b1220EE" stroke="#334155" />
+            <g transform="translate(8 7)">
+              <g onClick={onConquestOne} style={{ cursor: onConquestOne ? 'pointer' : 'default' }}>
+                <rect x={0} y={-6} width={60} height={24} rx={8} fill="#10B981" opacity="0.9" />
+                <text x={30} y={10} textAnchor="middle" fontSize="10" fill="#0b1220">+1</text>
+              </g>
+              <g transform="translate(68 0)" onClick={onConquestAll} style={{ cursor: onConquestAll ? 'pointer' : 'default' }}>
+                <rect x={0} y={-6} width={74} height={24} rx={8} fill="#059669" opacity="0.9" />
+                <text x={37} y="10" textAnchor="middle" fontSize="10" fill="#e2e8f0">ALL ➜</text>
               </g>
             </g>
           </g>
@@ -743,8 +822,16 @@ export default function RealMap({
         const mx = (fa[0] + ta[0]) / 2
         const my = (fa[1] + ta[1]) / 2
         const w = 150, h = 34
+        // Visible content bounds in content coords
+        const x0 = (-transform.tx) / transform.scale
+        const x1 = (canvas.w - transform.tx) / transform.scale
+        const y0 = (-transform.ty) / transform.scale
+        const y1 = (canvas.h - transform.ty) / transform.scale
+        const clamp = (v: number, mn: number, mx: number) => Math.max(mn, Math.min(mx, v))
+        const bx = clamp(mx - w/2, x0 + 8, x1 - (w + 8))
+        const by = clamp(my - h - 16, y0 + 8, y1 - (h + 8))
         return (
-          <g transform={`translate(${mx - w/2} ${my - h - 16})`} style={{ pointerEvents: 'auto' }}>
+          <g transform={`translate(${bx} ${by})`} style={{ pointerEvents: 'auto' }}>
             <rect x={0} y={0} width={w} height={h} rx={10} fill="#0b1220EE" stroke="#334155" />
             <g transform="translate(8 7)">
               <g onClick={onFortifyOne} style={{ cursor: onFortifyOne ? 'pointer' : 'default' }}>
