@@ -47,7 +47,7 @@ function App() {
     try { setMap(loadConfig().selectedMap) } catch {}
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
-  const mapHeightClass = isMobile ? 'h-[46vh]' : 'h-[90vh]'
+  const mapHeightClass = isMobile ? 'h-[40vh]' : 'h-[90vh]'
   useEffect(() => {
     // Background music only during game
     try {
@@ -209,7 +209,8 @@ function App() {
         territoriesWord: "bölge",
         attacker: "Saldıran",
         defender: "Savunan",
-        resultLabel: "Sonuç"
+        resultLabel: "Sonuç",
+        players: "Oyuncular"
       },
       en: {
         title: "RISK - World Domination",
@@ -270,7 +271,8 @@ function App() {
         territoriesWord: "territories",
         attacker: "Attacker",
         defender: "Defender",
-        resultLabel: "Result"
+        resultLabel: "Result",
+        players: "Players"
       }
     }
     return (lang: 'tr' | 'en') => (key: string) => {
@@ -731,7 +733,7 @@ function App() {
                     </div>
           {/* Subtle footer credit */}
           <div className="text-center text-[10px] text-slate-400/40 mt-4 select-none">
-            {tr('credit')} • {(config.language==='tr' ? 'Sürüm' : 'Version')} 1.1.12
+            {tr('credit')} • {(config.language==='tr' ? 'Sürüm' : 'Version')} 1.1.17
                     </div>
         </motion.div>
                   </div>
@@ -802,11 +804,11 @@ function App() {
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-2 md:p-4">
       <div className="max-w-[2000px] mx-auto">
         {/* Header */}
-        <div className="bg-slate-800/50 backdrop-blur-xl rounded-2xl border border-slate-700/50 p-3 md:p-4 mb-3 md:mb-4 sticky top-0 z-30" style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}>
+        <div className="bg-slate-800/50 backdrop-blur-xl rounded-2xl border border-slate-700/50 p-2.5 md:p-3 mb-3 md:mb-4 sticky top-0 z-30" style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}>
           <div className="flex justify-between items-center relative">
-            <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+            <div className="flex items-center gap-1.5 sm:gap-3 min-w-0">
               <h1
-                className="text-2xl font-bold text-white cursor-pointer hover:underline truncate max-w-[38vw] sm:max-w-none"
+                className="text-lg sm:text-2xl font-bold text-white cursor-pointer hover:underline truncate max-w-[46vw] sm:max-w-none"
                 onClick={() => {
                   setSetupComplete(false)
                   try { useGameStore.getState().reset() } catch {}
@@ -815,14 +817,14 @@ function App() {
               >
                 {tr('title')}
               </h1>
-              <div className="flex flex-col gap-1 min-w-0">
-                <div className="flex items-center gap-2 min-w-0">
-              <p className="text-slate-400 truncate">
+              <div className="flex flex-col gap-0.5 sm:gap-1 min-w-0">
+                <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
+              <p className="text-[11px] sm:text-[13px] text-slate-400 truncate">
                 {getMapById(selectedMap)?.name} • {tr('turn')} {turn}
               </p>
                   {/* Phase chip */}
                   <span
-                    className="text-xs px-2.5 py-1 rounded-xl shadow border backdrop-blur"
+                    className="text-[9px] sm:text-xs px-1.5 py-0.5 sm:px-2.5 sm:py-1 rounded-xl shadow border backdrop-blur"
                     style={{
                       borderColor: (currentPlayer?.color || '#64748b') + '66',
                       background: `linear-gradient(135deg, ${(currentPlayer?.color || '#64748b')}22, #0b1220aa)`,
@@ -840,7 +842,7 @@ function App() {
                   const idx = Math.max(0, order.indexOf((phase as any) || 'placement'))
                   const pct = ((idx + 1) / order.length) * 100
                   return (
-                    <div className="h-1 w-40 md:w-56 bg-slate-700/50 rounded-full overflow-hidden">
+                    <div className="h-0.5 w-32 md:h-1 md:w-56 bg-slate-700/50 rounded-full overflow-hidden">
                       <motion.div
                         initial={{ width: 0 }}
                         animate={{ width: `${pct}%` }}
@@ -853,66 +855,8 @@ function App() {
                 })()}
               </div>
             </div>
-            {/* Desktop quick actions (no current player card on header) */}
-            <div className="hidden sm:flex items-center gap-2">
-              <select
-                value={saveSlot}
-                onChange={(e)=> setSaveSlot(parseInt(e.target.value))}
-                className="px-2 py-2 text-xs rounded bg-slate-700 text-white hover:bg-slate-600"
-                aria-label="Save slot"
-                title="Save Slot"
-              >
-                <option value={1}>Slot 1</option>
-                <option value={2}>Slot 2</option>
-                <option value={3}>Slot 3</option>
-                <option value={4}>Slot 4</option>
-                <option value={5}>Slot 5</option>
-              </select>
-              <button
-                onClick={() => {
-                  const ok = (useGameStore.getState().saveGameToSlot?.(saveSlot) || useGameStore.getState().saveGame?.() || false)
-                  setToast(ok ? (config.language==='tr' ? 'Oyun kaydedildi' : 'Game saved') : (config.language==='tr' ? 'Kaydetme başarısız' : 'Save failed'))
-                  setTimeout(()=> setToast(null), 2000)
-                }}
-                className="px-3 py-2 text-xs rounded bg-slate-700 text-white hover:bg-slate-600"
-              >
-                💾 {config.language==='tr' ? 'Kaydet' : 'Save'}
-              </button>
-              <button
-                onClick={() => {
-                  const ok = (useGameStore.getState().loadGameFromSlot?.(saveSlot) || useGameStore.getState().loadGame?.() || false)
-                  setToast(ok ? (config.language==='tr' ? 'Oyun yüklendi' : 'Game loaded') : (config.language==='tr' ? 'Kayıt bulunamadı' : 'No save found'))
-                  setTimeout(()=> setToast(null), 2000)
-                }}
-                className="px-3 py-2 text-xs rounded bg-slate-700 text-white hover:bg-slate-600"
-              >
-                📂 {config.language==='tr' ? 'Yükle' : 'Load'}
-              </button>
-              <button
-                onClick={() => setMusicOn(v => !v)}
-                className="px-2.5 py-2 text-[13px] rounded bg-slate-800/70 border border-slate-600 text-slate-200"
-                aria-label={musicOn ? (config.language==='tr' ? 'Müziği kapat' : 'Mute') : (config.language==='tr' ? 'Müziği aç' : 'Unmute')}
-                title={musicOn ? (config.language==='tr' ? 'Müziği kapat' : 'Mute') : (config.language==='tr' ? 'Müziği aç' : 'Unmute')}
-              >
-                {musicOn ? '🔊' : '🔈'}
-              </button>
-              <select
-                value={config.language}
-                onChange={(e) => {
-                  const next = { ...config, language: e.target.value as 'tr'|'en' }
-                  setConfig(next); saveConfig(next)
-                  try { document.documentElement.lang = next.language } catch {}
-                }}
-                className="px-2 py-2 text-xs rounded bg-slate-700 text-white hover:bg-slate-600"
-                aria-label="Language"
-                title={config.language==='tr' ? 'Dil' : 'Language'}
-              >
-                <option value="tr">TR</option>
-                <option value="en">EN</option>
-              </select>
-            </div>
-            {/* Mobile settings trigger */}
-            <div className="sm:hidden absolute right-3 top-3">
+            {/* Unified settings trigger (desktop + mobile) */}
+            <div className="absolute right-3 top-3">
               <button
                 onClick={() => setShowMobileSettings(v => !v)}
                 className="px-2.5 py-2 rounded-lg bg-slate-700/60 text-white border border-slate-600"
@@ -922,10 +866,10 @@ function App() {
                 ⚙️
               </button>
             </div>
-            {/* Mobile settings popover */}
+            {/* Settings popover (desktop + mobile) */}
             {showMobileSettings && (
-              <div className="sm:hidden absolute right-2 top-12 z-40 bg-slate-900/95 border border-slate-700/70 rounded-xl p-3 w-[min(92vw,320px)] max-h-[min(70vh,420px)] overflow-y-auto shadow-2xl" style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
-                <div className="space-y-3">
+              <div className="absolute right-2 top-12 z-40 bg-slate-900/95 border border-slate-700/70 rounded-xl p-2.5 w-[min(92vw,340px)] max-h-[min(70vh,420px)] overflow-y-auto shadow-2xl" style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
+                <div className="space-y-2.5">
                   <div>
                     <div className="text-xs text-slate-400 mb-1">{config.language==='tr' ? 'Kayıt Slotu' : 'Save Slot'}</div>
                     <select
@@ -977,6 +921,20 @@ function App() {
                       <option value="en">English</option>
                     </select>
                   </div>
+                  <div>
+                    <div className="text-xs text-slate-400 mb-1">{config.language==='tr' ? 'Harita Varyantı' : 'Map Variant'}</div>
+                    <select
+                      value={config.mapVariant || 'standard'}
+                      onChange={(e) => {
+                        const val = (e.target.value as 'standard'|'mini'|'midi')
+                        applySetting('mapVariant', val as any)
+                      }}
+                      className="w-full rounded-md bg-slate-800/70 border border-slate-600/50 px-3 py-2 text-white text-sm"
+                    >
+                      <option value="standard">{config.language==='tr' ? 'Standart' : 'Standard'}</option>
+                      <option value="mini">{config.language==='tr' ? 'Mini' : 'Mini'}</option>
+                    </select>
+                  </div>
                   <label className="flex items-center justify-between text-sm text-slate-300">
                     <span>{config.language==='tr' ? 'Müzik' : 'Music'}</span>
                     <input
@@ -1006,6 +964,19 @@ function App() {
                         const next = { ...config, sfx: e.target.checked }
                         setConfig(next); saveConfig(next)
                         setSettings({ sfx: e.target.checked })
+                      }}
+                    />
+                  </label>
+                  <label className="flex items-center justify-between text-sm text-slate-300">
+                    <span>{config.language==='tr' ? 'Renk Körlüğü Modu' : 'Colorblind mode'}</span>
+                    <input
+                      type="checkbox"
+                      checked={!!config.colorblindMode}
+                      onChange={(e)=> {
+                        const next = { ...config, colorblindMode: e.target.checked }
+                        setConfig(next); saveConfig(next)
+                        setSettings({ colorblindMode: e.target.checked })
+                        setPlayerColors(e.target.checked ? defaultColorsCB : defaultColorsNormal)
                       }}
                     />
                   </label>
@@ -1358,12 +1329,12 @@ function App() {
               )}
               {isMobile && (
                 <div className="absolute inset-x-0 bottom-2 md:hidden pointer-events-none" style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
-                  <div className="pointer-events-auto mx-auto w-[92%] max-w-md bg-slate-900/80 border border-slate-700/60 rounded-xl shadow-xl flex items-center justify-center gap-2 px-3 py-2">
+                  <div className="pointer-events-auto mx-auto w-[92%] max-w-md bg-slate-900/80 border border-slate-700/60 rounded-xl shadow-xl flex items-center justify-center gap-1.5 px-2.5 py-1.5">
                     {/* Attack -> End Attack */}
                     {phase === 'attack' && !lastBattleResult && (
                       <button
                         onClick={() => { try { navigator.vibrate?.(10) } catch {} ; endAttackPhase() }}
-                        className="px-3 py-2 text-xs rounded bg-slate-700 text-white hover:bg-slate-600"
+                        className="px-2.5 py-1.5 text-[11px] rounded bg-slate-700 text-white hover:bg-slate-600"
                       >
                         {tr('endAttack')}
                       </button>
@@ -1373,13 +1344,13 @@ function App() {
                       <>
                         <button
                           onClick={() => { try { navigator.vibrate?.(8) } catch {} ; conquestMove(1); setConquestArmies(1) }}
-                          className="px-3 py-2 text-xs rounded bg-emerald-600 text-white hover:bg-emerald-700"
+                          className="px-2.5 py-1.5 text-[11px] rounded bg-emerald-600 text-white hover:bg-emerald-700"
                         >
                           {tr('moveOne')}
                         </button>
                         <button
                           onClick={() => { try { navigator.vibrate?.(8) } catch {} ; const maxMove = Math.max(1, (getTerritoryState(attackFrom!)?.armies || 1) - 1); setConquestArmies(maxMove); conquestMove(maxMove); setConquestArmies(1) }}
-                          className="px-3 py-2 text-xs rounded bg-emerald-700 text-white hover:bg-emerald-800"
+                          className="px-2.5 py-1.5 text-[11px] rounded bg-emerald-700 text-white hover:bg-emerald-800"
                         >
                           {tr('moveAll')}
                         </button>
@@ -1391,14 +1362,14 @@ function App() {
                         {fortifyFrom && fortifyTo && (
                           <button
                             onClick={() => { try { navigator.vibrate?.(8) } catch {} ; executeFortify(fortifyArmies); setFortifyArmies(1) }}
-                            className="px-3 py-2 text-xs rounded bg-blue-600 text-white hover:bg-blue-700"
+                            className="px-2.5 py-1.5 text-[11px] rounded bg-blue-600 text-white hover:bg-blue-700"
                           >
                             {tr('fortify')}
                           </button>
                         )}
                         <button
                           onClick={() => { try { navigator.vibrate?.(10) } catch {} ; executeFortify(0) }}
-                          className="px-3 py-2 text-xs rounded bg-slate-700 text-white hover:bg-slate-600"
+                          className="px-2.5 py-1.5 text-[11px] rounded bg-slate-700 text-white hover:bg-slate-600"
                         >
                           {tr('endTurn')}
                         </button>
@@ -1923,7 +1894,7 @@ function App() {
 
             {/* Players */}
             <div className="hidden md:block bg-slate-800/50 backdrop-blur-xl rounded-2xl border border-slate-700/50 p-4">
-              <h3 className="text-lg font-bold text-white mb-3">Oyuncular</h3>
+              <h3 className="text-lg font-bold text-white mb-3">{tr('players')}</h3>
               <div className="space-y-2">
                 {players.filter(p => p.alive).map((player) => {
                   const territoryCount = territories.filter(t => t.ownerId === player.id).length
@@ -1963,7 +1934,7 @@ function App() {
                         )}
             </div>
                       <div className="text-xs text-slate-400 mt-1">
-                        {territoryCount} bölge • {armyCount} asker
+                        {territoryCount} {tr('territoriesWord')} • {armyCount} {tr('armies')}
           </div>
                       {continentBonuses.length > 0 && (
                         <div className="text-xs text-amber-400 mt-1 flex items-center gap-1">

@@ -66,6 +66,7 @@ export default function RealMap({
   const touchStartClientRef = useRef<{ x: number; y: number } | null>(null)
   const touchMovedRef = useRef(false)
   const lastTapRef = useRef<number>(0)
+  const touchClickBlockUntilRef = useRef<number>(0)
   // Simple inertia for touch panning
   const inertiaRef = useRef<{ vx: number; vy: number; lastTs: number; raf: number | null }>({ vx: 0, vy: 0, lastTs: 0, raf: null })
   const [hover, setHover] = useState<{ id: string; x: number; y: number } | null>(null)
@@ -469,6 +470,8 @@ export default function RealMap({
     } else {
       lastTapRef.current = now
     }
+    // Block subsequent synthetic click shortly after touch
+    touchClickBlockUntilRef.current = Date.now() + 350
     // Start inertia scrolling if there was movement and not a pinch
     if (touchMovedRef.current && !pinchRef.current) {
       const start = performance.now()
@@ -744,7 +747,7 @@ export default function RealMap({
 
           return (
             <g key={t.id}
-               onClick={() => onTerritoryClick?.(t.id)}
+               onClick={() => { if (Date.now() < touchClickBlockUntilRef.current) return; onTerritoryClick?.(t.id) }}
                onMouseDown={() => onTerritoryMouseDown?.(t.id)}
                onMouseUp={() => onTerritoryMouseUp?.(t.id)}
                  onMouseEnter={() => setHover({ id: t.id, x: xy[0], y: xy[1] })}
@@ -789,7 +792,7 @@ export default function RealMap({
             </g>
           )
         })}
-        </g>
+      </g>
 
       {/* Compact on-map attack actions bubble */}
       {(() => {
@@ -804,7 +807,7 @@ export default function RealMap({
         if (!fa || !ta) return null
         const mx = (fa[0] + ta[0]) / 2
         const my = (fa[1] + ta[1]) / 2
-        const w = 150, h = 34
+        const w = 128, h = 28
         // Visible content bounds in content coords
         const x0 = (-transform.tx) / transform.scale
         const x1 = (canvas.w - transform.tx) / transform.scale
@@ -815,19 +818,19 @@ export default function RealMap({
         const by = clamp(my - h - 16, y0 + 8, y1 - (h + 8))
         return (
           <g transform={`translate(${bx} ${by})`} style={{ pointerEvents: 'auto' }}>
-            <rect x={0} y={0} width={w} height={h} rx={10} fill="#0b1220EE" stroke="#334155" />
-            <g transform="translate(8 7)">
-              <g onClick={onAttackOnce} style={{ cursor: onAttackOnce ? 'pointer' : 'default' }}>
-                <rect x={0} y={-6} width={40} height={24} rx={8} fill="#ef4444" opacity="0.85" />
-                <text x={20} y={10} textAnchor="middle" fontSize="10" fill="#fff">⚔️</text>
+            <rect x={0} y={0} width={w} height={h} rx={9} fill="#0b1220EE" stroke="#334155" />
+            <g transform="translate(6 6)">
+              <g onClick={() => { try { (navigator as any).vibrate?.(8) } catch {}; onAttackOnce?.() }} style={{ cursor: onAttackOnce ? 'pointer' : 'default' }}>
+                <rect x={0} y={-6} width={36} height={22} rx={7} fill="#ef4444" opacity="0.9" />
+                <text x={18} y={9} textAnchor="middle" fontSize="9" fill="#fff">⚔️</text>
               </g>
-              <g transform="translate(52 0)" onClick={onAllIn} style={{ cursor: onAllIn ? 'pointer' : 'default' }}>
-                <rect x={0} y={-6} width={40} height={24} rx={8} fill="#f59e0b" opacity="0.85" />
-                <text x={20} y={10} textAnchor="middle" fontSize="10" fill="#0b1220">⚡</text>
+              <g transform="translate(44 0)" onClick={() => { try { (navigator as any).vibrate?.(10) } catch {}; onAllIn?.() }} style={{ cursor: onAllIn ? 'pointer' : 'default' }}>
+                <rect x={0} y={-6} width={36} height={22} rx={7} fill="#f59e0b" opacity="0.95" />
+                <text x={18} y={9} textAnchor="middle" fontSize="9" fill="#0b1220">⚡</text>
               </g>
-              <g transform="translate(104 0)" onClick={onEndAttack} style={{ cursor: onEndAttack ? 'pointer' : 'default' }}>
-                <rect x={0} y={-6} width={40} height={24} rx={8} fill="#334155" opacity="0.9" />
-                <text x={20} y="10" textAnchor="middle" fontSize="10" fill="#e2e8f0">⏹</text>
+              <g transform="translate(88 0)" onClick={() => { try { (navigator as any).vibrate?.(6) } catch {}; onEndAttack?.() }} style={{ cursor: onEndAttack ? 'pointer' : 'default' }}>
+                <rect x={0} y={-6} width={36} height={22} rx={7} fill="#334155" opacity="0.95" />
+                <text x={18} y="9" textAnchor="middle" fontSize="9" fill="#e2e8f0">⏹</text>
               </g>
             </g>
           </g>
@@ -1015,7 +1018,11 @@ export default function RealMap({
             }}
             style={{ cursor: 'pointer' }}
           />
-          <text x={-ctrlSize/2} y={ctrlSize - 9} textAnchor="middle" fontSize={ctrlText} fill="#e2e8f0">+</text>
+          {/* plus icon */}
+          <g>
+            <line x1={-ctrlSize/2 - 6} y1={ctrlSize/2} x2={-ctrlSize/2 + 6} y2={ctrlSize/2} stroke="#e2e8f0" strokeWidth={2} strokeLinecap="round" />
+            <line x1={-ctrlSize/2} y1={ctrlSize/2 - 6} x2={-ctrlSize/2} y2={ctrlSize/2 + 6} stroke="#e2e8f0" strokeWidth={2} strokeLinecap="round" />
+          </g>
         </g>
         <g transform={`translate(0 ${ctrlSize + ctrlSpacing})`}>
           {/* hit area */}
@@ -1064,7 +1071,8 @@ export default function RealMap({
             }}
             style={{ cursor: 'pointer' }}
           />
-          <text x={-ctrlSize/2} y={ctrlSize - 9} textAnchor="middle" fontSize={ctrlText} fill="#e2e8f0">−</text>
+          {/* minus icon */}
+          <line x1={-ctrlSize/2 - 7} y1={ctrlSize/2} x2={-ctrlSize/2 + 7} y2={ctrlSize/2} stroke="#e2e8f0" strokeWidth={2} strokeLinecap="round" />
         </g>
         <g transform={`translate(0 ${(ctrlSize + ctrlSpacing) * 2})`}>
           {/* hit area */}
@@ -1113,7 +1121,9 @@ export default function RealMap({
             }}
             style={{ cursor: 'pointer' }}
           />
-          <text x={-ctrlSize/2} y={ctrlSize - 11} textAnchor="middle" fontSize={ctrlTextSmall} fill="#e2e8f0">⟲</text>
+          {/* reset icon (circle + small arrow head) */}
+          <circle cx={-ctrlSize/2} cy={ctrlSize/2} r={8} stroke="#e2e8f0" strokeWidth={2} fill="none" opacity={0.9} />
+          <path d={`M ${-ctrlSize/2 + 6} ${ctrlSize/2 - 8} L ${-ctrlSize/2 + 9} ${ctrlSize/2 - 8} L ${-ctrlSize/2 + 9} ${ctrlSize/2 - 11} Z`} fill="#e2e8f0" opacity={0.9} />
         </g>
         {/* Help button and inline panel */}
         <g transform={`translate(0 ${(ctrlSize + ctrlSpacing) * 3})`} style={{ cursor: 'pointer' }}>
