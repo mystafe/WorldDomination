@@ -67,8 +67,6 @@ export default function RealMap({
   const [showHelp, setShowHelp] = useState(false)
   const [minimapActive, setMinimapActive] = useState(true)
   const minimapTimerRef = useRef<number | null>(null)
-  // TR province boundaries overlay (TopJSON-driven)
-  const [trProvinceMesh, setTrProvinceMesh] = useState<any | null>(null)
   // World base topology (lazy-loaded to split bundle)
   const [worldTopo, setWorldTopo] = useState<any | null>(null)
   // Track army placement increases for pop animation
@@ -92,26 +90,6 @@ export default function RealMap({
     })()
     return () => { cancelled = true }
   }, [])
-  // Load Turkey province boundaries TopoJSON (optional, fail-safe)
-  useEffect(() => {
-    let cancelled = false
-    if (mapId !== 'turkey') { setTrProvinceMesh(null); return }
-    ;(async () => {
-      try {
-        const res = await fetch('/geo/tr-provinces.topo.json', { cache: 'force-cache' })
-        if (!res.ok) return
-        const topo = await res.json()
-        // try common object keys
-        const obj = (topo.objects && (topo.objects.provinces || topo.objects.admin || topo.objects.collection || Object.values(topo.objects)[0])) || null
-        if (!obj) return
-        const mesh = (topoMesh as any)(topo, obj, (a: any, b: any) => a !== b)
-        if (!cancelled) setTrProvinceMesh(mesh || null)
-      } catch {
-        if (!cancelled) setTrProvinceMesh(null)
-      }
-    })()
-    return () => { cancelled = true }
-  }, [mapId])
   // Detect increases
   useEffect(() => {
     const now = Date.now()
@@ -138,7 +116,7 @@ export default function RealMap({
     prevArmiesRef.current = nextPrev
   }, [territories])
 
-  const { countryFeatures, projection, path, canvas, isMobile, boundary } = useMemo(() => {
+  const { countryFeatures, projection, path, canvas, isMobile } = useMemo(() => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const world = worldTopo as any
     // Build countries safely even if world hasn't loaded yet
@@ -270,7 +248,7 @@ export default function RealMap({
         .scale(currentScale * 2.0)
     }
     const path = geoPath(projection)
-    return { countryFeatures: featuresArray.length ? featuresArray : [f], projection, path, canvas, isMobile: mobile, boundary: boundaryGeom }
+    return { countryFeatures: featuresArray.length ? featuresArray : [f], projection, path, canvas, isMobile: mobile }
   }, [mapId, worldTopo])
 
   // Precompute Voronoi regions for territory coloring
