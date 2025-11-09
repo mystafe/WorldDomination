@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react"
-import { feature, mesh as topoMesh } from "topojson-client"
+import { feature } from "topojson-client"
 import { Delaunay } from "d3-delaunay"
 import { polygonHull } from "d3-polygon"
 import { geoMercator, geoNaturalEarth1, geoPath, geoBounds } from "d3-geo"
@@ -129,8 +129,6 @@ export default function RealMap({
     // Build a feature for current map
     let f: any = null
     let featuresArray: any[] = []
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let boundaryGeom: any | null = null;
     // Fallback geometry derived from mapDefinition points (keeps projection fit sane while topo loads)
     const coordPts: Array<[number, number]> = []
     for (const t of (mapDefinition?.territories ?? [])) {
