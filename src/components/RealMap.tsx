@@ -67,6 +67,7 @@ export default function RealMap({
   const touchMovedRef = useRef(false)
   const lastTapRef = useRef<number>(0)
   const touchClickBlockUntilRef = useRef<number>(0)
+  const lastTouchTsRef = useRef<number>(0)
   // Simple inertia for touch panning
   const inertiaRef = useRef<{ vx: number; vy: number; lastTs: number; raf: number | null }>({ vx: 0, vy: 0, lastTs: 0, raf: null })
   const [hover, setHover] = useState<{ id: string; x: number; y: number } | null>(null)
@@ -394,6 +395,8 @@ export default function RealMap({
     setMinimapActive(true)
     if (minimapTimerRef.current) { window.clearTimeout(minimapTimerRef.current) }
     minimapTimerRef.current = window.setTimeout(() => setMinimapActive(false), 2500)
+    lastTouchTsRef.current = Date.now()
+    touchClickBlockUntilRef.current = Date.now() + 500
     if (e.touches.length === 1) {
       lastPosRef.current = svgToViewBox(e.touches[0].clientX, e.touches[0].clientY)
       touchStartClientRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY }
@@ -746,7 +749,7 @@ export default function RealMap({
           return (
             <g key={t.id}
                onClick={() => { if (Date.now() < touchClickBlockUntilRef.current) return; onTerritoryClick?.(t.id) }}
-               onMouseDown={() => onTerritoryMouseDown?.(t.id)}
+               onMouseDown={() => { if (Date.now() - lastTouchTsRef.current < 600) return; onTerritoryMouseDown?.(t.id) }}
                onMouseUp={() => { if (Date.now() < touchClickBlockUntilRef.current) return; onTerritoryMouseUp?.(t.id) }}
                  onMouseEnter={() => setHover({ id: t.id, x: xy[0], y: xy[1] })}
                  onMouseLeave={() => setHover(null)}

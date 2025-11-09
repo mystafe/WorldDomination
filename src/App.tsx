@@ -868,14 +868,14 @@ function App() {
             </div>
             {/* Settings popover (desktop + mobile) */}
             {showMobileSettings && (
-              <div className="absolute right-2 top-12 z-40 bg-slate-900/95 border border-slate-700/70 rounded-xl p-2.5 w-[min(92vw,340px)] max-h-[min(70vh,420px)] overflow-y-auto shadow-2xl" style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
-                <div className="space-y-2.5">
+              <div className="absolute right-2 top-12 z-40 bg-slate-900/95 border border-slate-700/70 rounded-xl p-2 w-[min(92vw,320px)] max-h-[min(70vh,400px)] overflow-y-auto shadow-2xl" style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
+                <div className="space-y-2">
                   <div>
-                    <div className="text-xs text-slate-400 mb-1">{config.language==='tr' ? 'Kayıt Slotu' : 'Save Slot'}</div>
+                    <div className="text-[11px] text-slate-400 mb-1">{config.language==='tr' ? 'Kayıt Slotu' : 'Save Slot'}</div>
                     <select
                       value={saveSlot}
                       onChange={(e)=> setSaveSlot(parseInt(e.target.value))}
-                      className="w-full rounded-md bg-slate-800/70 border border-slate-600/50 px-3 py-2 text-white text-sm"
+                      className="w-full rounded-md bg-slate-800/70 border border-slate-600/50 px-2.5 py-1.5 text-white text-xs"
                     >
                       <option value={1}>Slot 1</option>
                       <option value={2}>Slot 2</option>
@@ -890,7 +890,7 @@ function App() {
                           setToast(ok ? (config.language==='tr' ? 'Oyun kaydedildi' : 'Game saved') : (config.language==='tr' ? 'Kaydetme başarısız' : 'Save failed'))
                           setTimeout(()=> setToast(null), 2000)
                         }}
-                        className="px-3 py-2 text-xs rounded bg-slate-700 text-white hover:bg-slate-600"
+                        className="px-2.5 py-1.5 text-[11px] rounded bg-slate-700 text-white hover:bg-slate-600"
                       >
                         💾 {config.language==='tr' ? 'Kaydet' : 'Save'}
                       </button>
@@ -900,14 +900,14 @@ function App() {
                           setToast(ok ? (config.language==='tr' ? 'Oyun yüklendi' : 'Game loaded') : (config.language==='tr' ? 'Kayıt bulunamadı' : 'No save found'))
                           setTimeout(()=> setToast(null), 2000)
                         }}
-                        className="px-3 py-2 text-xs rounded bg-slate-700 text-white hover:bg-slate-600"
+                        className="px-2.5 py-1.5 text-[11px] rounded bg-slate-700 text-white hover:bg-slate-600"
                       >
                         📂 {config.language==='tr' ? 'Yükle' : 'Load'}
                       </button>
                     </div>
                   </div>
                   <div>
-                    <div className="text-xs text-slate-400 mb-1">{config.language==='tr' ? 'Dil' : 'Language'}</div>
+                    <div className="text-[11px] text-slate-400 mb-1">{config.language==='tr' ? 'Dil' : 'Language'}</div>
                     <select
                       value={config.language}
                       onChange={(e) => {
@@ -915,27 +915,27 @@ function App() {
                         setConfig(next); saveConfig(next)
                         try { document.documentElement.lang = next.language } catch {}
                       }}
-                      className="w-full rounded-md bg-slate-800/70 border border-slate-600/50 px-3 py-2 text-white text-sm"
+                      className="w-full rounded-md bg-slate-800/70 border border-slate-600/50 px-2.5 py-1.5 text-white text-xs"
                     >
                       <option value="tr">Türkçe</option>
                       <option value="en">English</option>
                     </select>
                   </div>
                   <div>
-                    <div className="text-xs text-slate-400 mb-1">{config.language==='tr' ? 'Harita Varyantı' : 'Map Variant'}</div>
+                    <div className="text-[11px] text-slate-400 mb-1">{config.language==='tr' ? 'Harita Varyantı' : 'Map Variant'}</div>
                     <select
                       value={config.mapVariant || 'standard'}
                       onChange={(e) => {
                         const val = (e.target.value as 'standard'|'mini'|'midi')
                         applySetting('mapVariant', val as any)
                       }}
-                      className="w-full rounded-md bg-slate-800/70 border border-slate-600/50 px-3 py-2 text-white text-sm"
+                      className="w-full rounded-md bg-slate-800/70 border border-slate-600/50 px-2.5 py-1.5 text-white text-xs"
                     >
                       <option value="standard">{config.language==='tr' ? 'Standart' : 'Standard'}</option>
                       <option value="mini">{config.language==='tr' ? 'Mini' : 'Mini'}</option>
                     </select>
                   </div>
-                  <label className="flex items-center justify-between text-sm text-slate-300">
+                  <label className="flex items-center justify-between text-[12px] text-slate-300">
                     <span>{config.language==='tr' ? 'Müzik' : 'Music'}</span>
                     <input
                       type="checkbox"
@@ -943,7 +943,7 @@ function App() {
                       onChange={() => setMusicOn(v => !v)}
                     />
                   </label>
-                  <label className="flex items-center justify-between text-sm text-slate-300">
+                  <label className="flex items-center justify-between text-[12px] text-slate-300">
                     <span>{config.language==='tr' ? 'Performans modu' : 'Performance mode'}</span>
                     <input
                       type="checkbox"
@@ -955,7 +955,7 @@ function App() {
                       }}
                     />
                   </label>
-                  <label className="flex items-center justify-between text-sm text-slate-300">
+                  <label className="flex items-center justify-between text-[12px] text-slate-300">
                     <span>{config.language==='tr' ? 'Ses efektleri' : 'SFX'}</span>
                     <input
                       type="checkbox"
@@ -967,7 +967,7 @@ function App() {
                       }}
                     />
                   </label>
-                  <label className="flex items-center justify-between text-sm text-slate-300">
+                  <label className="flex items-center justify-between text-[12px] text-slate-300">
                     <span>{config.language==='tr' ? 'Renk Körlüğü Modu' : 'Colorblind mode'}</span>
                     <input
                       type="checkbox"
@@ -982,7 +982,7 @@ function App() {
                   </label>
                   <button
                     onClick={() => setShowMobileSettings(false)}
-                    className="w-full mt-1 py-1.5 rounded-lg bg-slate-700 text-white text-sm"
+                    className="w-full mt-1 py-1.5 rounded-lg bg-slate-700 text-white text-xs"
                   >
                     {config.language==='tr' ? 'Kapat' : 'Close'}
                   </button>
