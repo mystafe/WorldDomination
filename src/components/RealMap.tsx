@@ -308,7 +308,7 @@ export default function RealMap({
 
   // Reset view on map change
   useEffect(() => {
-    const scaleInit = isMobile ? 1.2 : 1
+    const scaleInit = isMobile ? 1.25 : 1
     const txInit = (1 - scaleInit) * (canvas.w / 2)
     const tyInit = (1 - scaleInit) * (canvas.h / 2)
     setTimeout(() => {
@@ -473,12 +473,12 @@ export default function RealMap({
       {/* Real region boundaries along country borders (world/europe) */}
       {(mapId === 'world' || mapId === 'europe') && boundary && (
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        <path d={path(boundary as any) || undefined} fill="none" stroke="#8B5CF6" strokeOpacity={0.6} strokeDasharray="2 6" strokeWidth={isMobile ? 2.2 : 1.8} />
+        <path d={path(boundary as any) || undefined} fill="none" stroke="#8B5CF6" strokeOpacity={0.6} strokeDasharray="2 6" strokeWidth={isMobile ? 2.2 : 1.8} filter={lowEffects ? undefined : "url(#region-glow)"} />
       )}
       {/* Turkey province boundaries (from TopoJSON, optional) */}
       {mapId === 'turkey' && trProvinceMesh && (
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        <path d={path(trProvinceMesh as any) || undefined} fill="none" stroke="#8B5CF6" strokeOpacity={0.65} strokeDasharray="3 6" strokeWidth={isMobile ? 2.2 : 1.8} />
+        <path d={path(trProvinceMesh as any) || undefined} fill="none" stroke="#8B5CF6" strokeOpacity={0.65} strokeDasharray="3 6" strokeWidth={isMobile ? 2.2 : 1.8} filter={lowEffects ? undefined : "url(#region-glow)"} />
       )}
 
       {/* Territory regions colored by ownership (Voronoi) */}
@@ -568,7 +568,7 @@ export default function RealMap({
       )}
 
         {/* Soft continent background overlays (stronger for world to increase separation) */}
-        <g opacity={lowEffects ? 0.14 : (mapId === 'world' ? 0.35 : 0.28)} filter={lowEffects ? undefined : "url(#bg-blur)"} style={{ pointerEvents: 'none' }}>
+        <g opacity={lowEffects ? 0.12 : (isMobile ? (mapId === 'world' ? 0.22 : 0.18) : (mapId === 'world' ? 0.35 : 0.28))} filter={lowEffects ? undefined : "url(#bg-blur)"} style={{ pointerEvents: 'none' }}>
           {mapDefinition.continents.map(cont => (
             <g key={cont.id}>
               {mapDefinition.territories.filter(t => t.continent === cont.id).map(t => {
@@ -583,24 +583,26 @@ export default function RealMap({
           ))}
         </g>
 
-        {/* Continent labels */}
-        <g style={{ pointerEvents: 'none' }}>
-          {mapDefinition.continents.map(cont => {
-            const pts = mapDefinition.territories.filter(t => t.continent === cont.id && t.lon != null && t.lat != null)
-            if (pts.length === 0) return null
-            let sx = 0, sy = 0
-            pts.forEach(t => { const xy = projection([t.lon!, t.lat!]) as [number, number]; sx += xy[0]; sy += xy[1] })
-            const cx = sx / pts.length, cy = sy / pts.length
-            return (
-              <g key={cont.id}>
-                <rect x={cx - 70} y={cy - 30} width={140} height={26} rx={8} fill="#0b1220AA" />
-                <text x={cx} y={cy - 12} textAnchor="middle" fontSize={isMobile ? 11 : 12} fontWeight={700} fill="#e2e8f0">
-                  {cont.name} · +{cont.bonus}
-                </text>
-              </g>
-            )
-          })}
-        </g>
+        {/* Continent labels (hidden on mobile for clarity) */}
+        {!isMobile && (
+          <g style={{ pointerEvents: 'none' }}>
+            {mapDefinition.continents.map(cont => {
+              const pts = mapDefinition.territories.filter(t => t.continent === cont.id && t.lon != null && t.lat != null)
+              if (pts.length === 0) return null
+              let sx = 0, sy = 0
+              pts.forEach(t => { const xy = projection([t.lon!, t.lat!]) as [number, number]; sx += xy[0]; sy += xy[1] })
+              const cx = sx / pts.length, cy = sy / pts.length
+              return (
+                <g key={cont.id}>
+                  <rect x={cx - 70} y={cy - 30} width={140} height={26} rx={8} fill="#0b1220AA" />
+                  <text x={cx} y={cy - 12} textAnchor="middle" fontSize={12} fontWeight={700} fill="#e2e8f0">
+                    {cont.name} · +{cont.bonus}
+                  </text>
+                </g>
+              )
+            })}
+          </g>
+        )}
 
         {/* Neighbor links - dashed to clarify borders on all maps */}
         <g style={{ pointerEvents: 'none' }}>
@@ -613,11 +615,17 @@ export default function RealMap({
               const bXY = b.lon != null && b.lat != null ? projection([b.lon, b.lat]) as [number, number] : null
               if (!aXY || !bXY) return null
               const sameCont = a.continent === b.continent
-              const stroke = sameCont ? '#475569' : '#7c3aed'
-              const dash = sameCont ? '4 3' : '6 4'
-              const w = lowEffects ? (isMobile ? 1.2 : 1.0) : (isMobile ? 1.6 : 1.2)
+              const contColor = mapDefinition.continents.find(c => c.id === a.continent)?.color || '#64748b'
+              const stroke = sameCont ? contColor : '#7c3aed'
+              const dash = sameCont ? '3 5' : '6 6'
+              const w = lowEffects ? (isMobile ? 1.0 : 0.9) : (isMobile ? 1.4 : 1.2)
+              // ownership-aware opacity: higher if border between different owners, lower if same owner
+              const aOwner = territories.find(ts => ts.id === a.id)?.ownerId
+              const bOwner = territories.find(ts => ts.id === b.id)?.ownerId
+              const enemyEdge = (aOwner != null && bOwner != null && aOwner >= 0 && bOwner >= 0 && aOwner !== bOwner)
+              const op = lowEffects ? (enemyEdge ? 0.65 : 0.35) : (enemyEdge ? 0.9 : 0.55)
               return (
-                <line key={`${a.id}-${b.id}`} x1={aXY[0]} y1={aXY[1]} x2={bXY[0]} y2={bXY[1]} stroke={stroke} strokeWidth={w + 0.2} strokeDasharray={dash} opacity={lowEffects ? (sameCont?0.38:0.62) : (sameCont?0.6:0.85)} />
+                <line key={`${a.id}-${b.id}`} x1={aXY[0]} y1={aXY[1]} x2={bXY[0]} y2={bXY[1]} stroke={stroke} strokeWidth={w + 0.2} strokeDasharray={dash} opacity={op} />
               )
             })
           ))}
@@ -653,8 +661,8 @@ export default function RealMap({
             const isFocused = focusTerritoryId === t.id
             const nameSmall = lang === 'en' ? 'Land' : 'Toprak'
             const nameBig = lang === 'en' ? 'Area' : 'Alan'
-            const nameFont = isMobile ? (big ? 6.6 : 5.4) : (mapId === 'europe' ? (big ? 9.0 : 7.0) : (big ? 10.0 : 8.0))
-            const armyFont = isMobile ? 5.8 : (mapId === 'europe' ? 7.2 : 8.0)
+            const nameFont = isMobile ? (big ? 6.0 : 5.0) : (mapId === 'europe' ? (big ? 9.0 : 7.0) : (big ? 10.0 : 8.0))
+            const armyFont = isMobile ? 5.4 : (mapId === 'europe' ? 7.2 : 8.0)
 
             // Clickability hint: dim non-clickables
             const isMine = ((state?.ownerId ?? -9999) === currentPlayerId)

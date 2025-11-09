@@ -28,6 +28,7 @@ function App() {
   const [focusId, setFocusId] = useState<string | null>(null)
   const [showOnboarding, setShowOnboarding] = useState(false)
   const [battleBanner, setBattleBanner] = useState<{ a: number; d: number; conquered?: boolean } | null>(null)
+  const [showMobileSettings, setShowMobileSettings] = useState(false)
 
   useEffect(() => {
     const chk = () => setIsMobile(typeof window !== 'undefined' && window.innerWidth < 768)
@@ -45,7 +46,7 @@ function App() {
     try { setMap(loadConfig().selectedMap) } catch {}
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
-  const mapHeightClass = isMobile ? 'h-[48vh]' : 'h-[90vh]'
+  const mapHeightClass = isMobile ? 'h-[46vh]' : 'h-[90vh]'
   useEffect(() => {
     // Background music only during game
     try {
@@ -572,17 +573,17 @@ function App() {
                           <div className="space-y-2">
                 {Array.from({ length: config.playerCount }).map((_, i) => (
                   <div key={i} className="flex items-center gap-2">
-                    <input
-                      type="text"
+                  <input
+                    type="text"
                       value={playerNames[i] || `Player ${i + 1}`}
-                      onChange={(e) => {
-                        const newNames = [...playerNames]
-                        newNames[i] = e.target.value
-                        setPlayerNames(newNames)
-                      }}
+                    onChange={(e) => {
+                      const newNames = [...playerNames]
+                      newNames[i] = e.target.value
+                      setPlayerNames(newNames)
+                    }}
                       className="flex-1 px-4 py-2 rounded-lg bg-slate-700/50 border border-slate-600 text-white focus:border-emerald-400 focus:ring-2 focus:ring-emerald-400/20 outline-none"
-                      placeholder={`Player ${i + 1}`}
-                    />
+                    placeholder={`Player ${i + 1}`}
+                  />
                     <input
                       type="color"
                       value={playerColors[i] || (config.colorblindMode ? defaultColorsCB[i % defaultColorsCB.length] : defaultColorsNormal[i % defaultColorsNormal.length])}
@@ -596,7 +597,7 @@ function App() {
                       title={`Player ${i + 1} color`}
                     />
                   </div>
-                ))}
+                            ))}
                           </div>
                     </div>
 
@@ -642,8 +643,8 @@ function App() {
                   >
                     <option value="tr">Türkçe</option>
                     <option value="en">English</option>
-                  </select>
-                </div>
+                        </select>
+                      </div>
                       <div>
                   <div className="text-xs text-slate-400 mb-1">Instant Mode</div>
                   <label className="inline-flex items-center gap-2 text-sm text-slate-300">
@@ -698,7 +699,7 @@ function App() {
                   />
                   <span>{config.language==='tr' ? 'Ses efektleri' : 'Sound effects'}</span>
                 </label>
-              </div>
+                      </div>
               <div className="text-xs text-slate-500 mt-2">
                 {config.language==='tr' ? 'Not: Yerleşim modu yeni oyunda etkili olur.' : 'Note: Placement mode applies on new game.'}
               </div>
@@ -712,7 +713,7 @@ function App() {
                 <li>• {config.language==='tr' ? 'Saldırıda All‑in ile hızlandır' : 'Use All‑in to fast‑resolve'}</li>
                 <li>• {config.language==='tr' ? 'Dokun ve basılı tut: hızlı yerleştir' : 'Press & hold to place faster'}</li>
               </ul>
-            </div>
+                </div>
 
             {/* Start Button */}
                       <button
@@ -724,8 +725,8 @@ function App() {
                     </div>
           {/* Subtle footer credit */}
           <div className="text-center text-[10px] text-slate-400/40 mt-4 select-none">
-            {tr('credit')} • {(config.language==='tr' ? 'Sürüm' : 'Version')} 1.1.8
-          </div>
+            {tr('credit')} • {(config.language==='tr' ? 'Sürüm' : 'Version')} 1.1.11
+                    </div>
         </motion.div>
                   </div>
     )
@@ -795,8 +796,8 @@ function App() {
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-2 md:p-4">
       <div className="max-w-[2000px] mx-auto">
         {/* Header */}
-        <div className="bg-slate-800/50 backdrop-blur-xl rounded-2xl border border-slate-700/50 p-3 md:p-4 mb-3 md:mb-4">
-          <div className="flex justify-between items-center">
+        <div className="bg-slate-800/50 backdrop-blur-xl rounded-2xl border border-slate-700/50 p-3 md:p-4 mb-3 md:mb-4 sticky top-0 z-30">
+          <div className="flex justify-between items-center relative">
             <div className="flex items-center gap-3">
               <h1
                 className="text-2xl font-bold text-white cursor-pointer hover:underline"
@@ -810,9 +811,9 @@ function App() {
               </h1>
               <div className="flex flex-col gap-1">
                 <div className="flex items-center gap-2">
-                  <p className="text-slate-400">
-                    {getMapById(selectedMap)?.name} • {tr('turn')} {turn}
-                  </p>
+              <p className="text-slate-400">
+                {getMapById(selectedMap)?.name} • {tr('turn')} {turn}
+              </p>
                   {/* Phase chip */}
                   <span
                     className="text-xs px-2.5 py-1 rounded-xl shadow border backdrop-blur"
@@ -831,7 +832,7 @@ function App() {
                   const idx = Math.max(0, order.indexOf((phase as any) || 'placement'))
                   const pct = ((idx + 1) / order.length) * 100
                   return (
-                    <div className="h-1 w-56 bg-slate-700/50 rounded-full overflow-hidden">
+                    <div className="h-1 w-40 md:w-56 bg-slate-700/50 rounded-full overflow-hidden">
                       <motion.div
                         initial={{ width: 0 }}
                         animate={{ width: `${pct}%` }}
@@ -859,7 +860,7 @@ function App() {
                     <div className="min-w-0 flex-1">
                       <div className="text-[10px] uppercase tracking-wide text-slate-400">{tr('currentPlayer')}</div>
                       <div className="text-white font-bold leading-tight text-sm truncate">
-                        {currentPlayer.name}
+                    {currentPlayer.name}
                       </div>
                     </div>
                     <span
@@ -908,12 +909,12 @@ function App() {
                       <div className="mt-1 flex flex-wrap items-center gap-1.5">
                         <span className="text-[10px] px-2 py-0.5 rounded-full" style={{ backgroundColor: (currentPlayer.color || '#64748b') + '26', color: currentPlayer.color }}>
                           {(currentPlayer.cards?.length || 0)} {tr('cards')}
-                        </span>
-                        {!currentPlayer.isHuman && (
+                    </span>
+                    {!currentPlayer.isHuman && (
                           <span className="text-[10px] px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300">
-                            🤖 AI
-                          </span>
-                        )}
+                        🤖 AI
+                      </span>
+                    )}
                         {(() => {
                           const tc = territories.filter(t => t.ownerId === currentPlayer.id).length
                           const ac = territories.filter(t => t.ownerId === currentPlayer.id).reduce((s, t) => s + t.armies, 0)
@@ -923,8 +924,8 @@ function App() {
                             </span>
                           )
                         })()}
-                      </div>
-                    </div>
+              </div>
+              </div>
                   </div>
                 </div>
                 {/* Quick actions */}
@@ -976,6 +977,77 @@ function App() {
                 </div>
               </div>
             )}
+            {/* Mobile settings trigger */}
+            <div className="sm:hidden absolute right-3 top-3">
+              <button
+                onClick={() => setShowMobileSettings(v => !v)}
+                className="px-2.5 py-2 rounded-lg bg-slate-700/60 text-white border border-slate-600"
+                aria-label="Settings"
+                title={config.language==='tr' ? 'Ayarlar' : 'Settings'}
+              >
+                ⚙️
+              </button>
+            </div>
+            {/* Mobile settings popover */}
+            {showMobileSettings && (
+              <div className="sm:hidden absolute right-2 top-12 z-20 bg-slate-900/95 border border-slate-700/70 rounded-xl p-3 w-56 shadow-xl">
+                <div className="space-y-3">
+                  <div>
+                    <div className="text-xs text-slate-400 mb-1">{config.language==='tr' ? 'Dil' : 'Language'}</div>
+                    <select
+                      value={config.language}
+                      onChange={(e) => {
+                        const next = { ...config, language: e.target.value as 'tr'|'en' }
+                        setConfig(next); saveConfig(next)
+                        try { document.documentElement.lang = next.language } catch {}
+                      }}
+                      className="w-full rounded-md bg-slate-800/70 border border-slate-600/50 px-3 py-2 text-white text-sm"
+                    >
+                      <option value="tr">Türkçe</option>
+                      <option value="en">English</option>
+                    </select>
+                  </div>
+                  <label className="flex items-center justify-between text-sm text-slate-300">
+                    <span>{config.language==='tr' ? 'Müzik' : 'Music'}</span>
+                    <input
+                      type="checkbox"
+                      checked={musicOn}
+                      onChange={() => setMusicOn(v => !v)}
+                    />
+                  </label>
+                  <label className="flex items-center justify-between text-sm text-slate-300">
+                    <span>{config.language==='tr' ? 'Performans modu' : 'Performance mode'}</span>
+                    <input
+                      type="checkbox"
+                      checked={!!config.lowEffects}
+                      onChange={(e)=> {
+                        const next = { ...config, lowEffects: e.target.checked }
+                        setConfig(next); saveConfig(next)
+                        setSettings({ lowEffects: e.target.checked })
+                      }}
+                    />
+                  </label>
+                  <label className="flex items-center justify-between text-sm text-slate-300">
+                    <span>{config.language==='tr' ? 'Ses efektleri' : 'SFX'}</span>
+                    <input
+                      type="checkbox"
+                      checked={!!config.sfx}
+                      onChange={(e)=> {
+                        const next = { ...config, sfx: e.target.checked }
+                        setConfig(next); saveConfig(next)
+                        setSettings({ sfx: e.target.checked })
+                      }}
+                    />
+                  </label>
+                  <button
+                    onClick={() => setShowMobileSettings(false)}
+                    className="w-full mt-1 py-1.5 rounded-lg bg-slate-700 text-white text-sm"
+                  >
+                    {config.language==='tr' ? 'Kapat' : 'Close'}
+                  </button>
+                </div>
+              </div>
+            )}
             </div>
           </div>
         
@@ -983,7 +1055,7 @@ function App() {
           {/* Map */}
           <div className="lg:col-span-4 xl:col-span-5">
             <div className="bg-slate-800/50 backdrop-blur-xl rounded-2xl border border-slate-700/50 p-3 md:p-4">
-              <h2 className="text-xl font-bold text-white mb-4">
+              <h2 className="text-lg md:text-xl font-bold text-white mb-3 md:mb-4">
                 {getMapById(selectedMap)?.name} • {territories.length} {tr('territoriesWord')}
               </h2>
               {/* Territory search */}
@@ -1300,6 +1372,26 @@ function App() {
                     </div>
                   )}
                 </div>
+              )}
+              {isMobile && (
+                <div className="absolute right-3 bottom-3 md:hidden" style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
+                  {phase === 'attack' && (
+                    <button
+                      onClick={endAttackPhase}
+                      className="px-3 py-2 rounded-full bg-slate-900/80 border border-slate-600 text-white text-xs shadow-lg"
+                    >
+                      {tr('endAttack')}
+                    </button>
+                  )}
+                  {phase === 'fortify' && (
+                    <button
+                      onClick={() => executeFortify(0)}
+                      className="px-3 py-2 rounded-full bg-slate-900/80 border border-slate-600 text-white text-xs shadow-lg"
+                    >
+                      {tr('endTurn')}
+                    </button>
+              )}
+                        </div>
               )}
               {/* Onboarding overlay */}
               {showOnboarding && (
@@ -1766,7 +1858,7 @@ function App() {
       </div>
 
             {/* Cards Panel */}
-            <div className="bg-slate-800/50 backdrop-blur-xl rounded-2xl border border-slate-700/50 p-3 md:p-4">
+            <div className="hidden md:block bg-slate-800/50 backdrop-blur-xl rounded-2xl border border-slate-700/50 p-3 md:p-4">
               <h3 className="text-lg font-bold text-white mb-3">{tr('cards')}</h3>
               {currentPlayer ? (
                 <div className="flex items-center justify-between">
@@ -1813,7 +1905,7 @@ function App() {
             </div>
 
             {/* Players */}
-            <div className="bg-slate-800/50 backdrop-blur-xl rounded-2xl border border-slate-700/50 p-4">
+            <div className="hidden md:block bg-slate-800/50 backdrop-blur-xl rounded-2xl border border-slate-700/50 p-4">
               <h3 className="text-lg font-bold text-white mb-3">Oyuncular</h3>
               <div className="space-y-2">
                 {players.filter(p => p.alive).map((player) => {
