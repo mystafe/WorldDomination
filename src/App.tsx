@@ -1180,7 +1180,7 @@ function App() {
                       }
                       if (!canPlace()) return
                       holdActiveRef.current = territoryId
-                      holdDelayRef.current = 220
+                      holdDelayRef.current = 320
                       holdCountRef.current = 0
                       ;(holdFiredRef as any).current = false
                       const tick = () => {
@@ -1195,7 +1195,8 @@ function App() {
                         if (holdCountRef.current > 40) holdDelayRef.current = 60
                         holdTimerRef.current = window.setTimeout(tick, holdDelayRef.current)
                       }
-                      tick()
+                      // start after a short long-press delay to avoid accidental holds
+                      holdTimerRef.current = window.setTimeout(tick, holdDelayRef.current)
                     }}
                     onTerritoryMouseUp={(territoryId) => {
                       const stop = () => {
