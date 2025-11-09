@@ -747,7 +747,7 @@ export default function RealMap({
             <g key={t.id}
                onClick={() => { if (Date.now() < touchClickBlockUntilRef.current) return; onTerritoryClick?.(t.id) }}
                onMouseDown={() => onTerritoryMouseDown?.(t.id)}
-               onMouseUp={() => onTerritoryMouseUp?.(t.id)}
+               onMouseUp={() => { if (Date.now() < touchClickBlockUntilRef.current) return; onTerritoryMouseUp?.(t.id) }}
                  onMouseEnter={() => setHover({ id: t.id, x: xy[0], y: xy[1] })}
                  onMouseLeave={() => setHover(null)}
               onTouchEnd={() => { if (!touchMovedRef.current) { onTerritoryMouseUp?.(t.id) } }}
