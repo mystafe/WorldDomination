@@ -63,6 +63,11 @@ export default function RealMap({
   const draggingRef = useRef(false)
   const lastPosRef = useRef<{ x: number; y: number } | null>(null)
   const pinchRef = useRef<{ d: number; cx: number; cy: number } | null>(null)
+  const touchStartClientRef = useRef<{ x: number; y: number } | null>(null)
+  const touchMovedRef = useRef(false)
+  const lastTapRef = useRef<number>(0)
+  // Simple inertia for touch panning
+  const inertiaRef = useRef<{ vx: number; vy: number; lastTs: number; raf: number | null }>({ vx: 0, vy: 0, lastTs: 0, raf: null })
   const [hover, setHover] = useState<{ id: string; x: number; y: number } | null>(null)
   const [showHelp, setShowHelp] = useState(false)
   const [minimapActive, setMinimapActive] = useState(true)
@@ -97,6 +102,7 @@ export default function RealMap({
     territories.forEach(st => {
       const old = prevArmiesRef.current[st.id]
       if (old != null && st.armies > old) {
+        try { (navigator as any)?.vibrate?.(10) } catch {}
         setFlashIds(f => {
           const nf = { ...f, [st.id]: now + 900 }
           window.setTimeout(() => {
@@ -305,8 +311,14 @@ export default function RealMap({
   const fromDef = selectedFrom ? mapDefinition.territories.find(t => t.id === selectedFrom) : undefined
   const lang = (typeof document !== 'undefined' && document.documentElement.lang?.toLowerCase().startsWith('en')) ? 'en' : 'tr'
   const ctrlSize = isMobile ? 28 : 28
+  const hitSize = isMobile ? 40 : 34
   const ctrlText = isMobile ? 16 : 14
   const ctrlTextSmall = isMobile ? 11 : 10
+  const ctrlSpacing = 8
+  const ctrlMargin = 12
+  const ctrlStackH = ctrlSize * 4 + ctrlSpacing * 3
+  const controlsX = canvas.w - (ctrlSize + 12)
+  const controlsY = canvas.h - (ctrlStackH + ctrlMargin)
 
   // Reset view on map change
   useEffect(() => {
@@ -385,6 +397,8 @@ export default function RealMap({
     minimapTimerRef.current = window.setTimeout(() => setMinimapActive(false), 2500)
     if (e.touches.length === 1) {
       lastPosRef.current = svgToViewBox(e.touches[0].clientX, e.touches[0].clientY)
+      touchStartClientRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY }
+      touchMovedRef.current = false
       pinchRef.current = null
     } else if (e.touches.length === 2) {
       const a = svgToViewBox(e.touches[0].clientX, e.touches[0].clientY)
@@ -400,10 +414,23 @@ export default function RealMap({
     if (minimapTimerRef.current) { window.clearTimeout(minimapTimerRef.current) }
     minimapTimerRef.current = window.setTimeout(() => setMinimapActive(false), 2500)
     if (e.touches.length === 1 && lastPosRef.current) {
+      if (touchStartClientRef.current) {
+        const dxp = e.touches[0].clientX - touchStartClientRef.current.x
+        const dyp = e.touches[0].clientY - touchStartClientRef.current.y
+        if (Math.hypot(dxp, dyp) > 8) {
+          touchMovedRef.current = true
+        }
+      }
       const cur = svgToViewBox(e.touches[0].clientX, e.touches[0].clientY)
       const dx = (cur.x - lastPosRef.current.x) * transform.scale
       const dy = (cur.y - lastPosRef.current.y) * transform.scale
       lastPosRef.current = cur
+      // Update velocity for inertia (approximate per-frame velocity)
+      const now = performance.now()
+      const dt = Math.max(1, now - (inertiaRef.current.lastTs || now))
+      inertiaRef.current.vx = (dx / dt) * 16 // normalise to ~60fps step
+      inertiaRef.current.vy = (dy / dt) * 16
+      inertiaRef.current.lastTs = now
       setTransform(t => ({ ...t, tx: t.tx + dx, ty: t.ty + dy }))
     } else if (e.touches.length === 2 && pinchRef.current) {
       const a = svgToViewBox(e.touches[0].clientX, e.touches[0].clientY)
@@ -419,9 +446,58 @@ export default function RealMap({
       pinchRef.current = { ...pinchRef.current, d }
     }
   }
-  const handleTouchEnd: React.TouchEventHandler<SVGSVGElement> = () => {
+  const handleTouchEnd: React.TouchEventHandler<SVGSVGElement> = (e) => {
+    // Double-tap to zoom in (only when not a drag)
+    const now = Date.now()
+    const prev = lastTapRef.current || 0
+    if (e.changedTouches && e.changedTouches.length === 1 && !touchMovedRef.current) {
+      const dt = now - prev
+      if (dt > 0 && dt < 300) {
+        const c = e.changedTouches[0]
+        const p = svgToViewBox(c.clientX, c.clientY)
+        const factor = 1.4
+        const newScale = clamp(transform.scale * factor, 0.7, 3.5)
+        const ppx = transform.scale * p.x + transform.tx
+        const ppy = transform.scale * p.y + transform.ty
+        const newTx = ppx - newScale * p.x
+        const newTy = ppy - newScale * p.y
+        setTransform({ scale: newScale, tx: newTx, ty: newTy })
+        lastTapRef.current = 0
+      } else {
+        lastTapRef.current = now
+      }
+    } else {
+      lastTapRef.current = now
+    }
+    // Start inertia scrolling if there was movement and not a pinch
+    if (touchMovedRef.current && !pinchRef.current) {
+      const start = performance.now()
+      const friction = 0.92
+      const maxMs = 350
+      const step = () => {
+        const tnow = performance.now()
+        const elapsed = tnow - start
+        if (elapsed > maxMs || (Math.abs(inertiaRef.current.vx) < 0.05 && Math.abs(inertiaRef.current.vy) < 0.05)) {
+          if (inertiaRef.current.raf != null) cancelAnimationFrame(inertiaRef.current.raf)
+          inertiaRef.current.raf = null
+          return
+        }
+        setTransform(t => ({
+          ...t,
+          tx: t.tx + inertiaRef.current.vx,
+          ty: t.ty + inertiaRef.current.vy
+        }))
+        inertiaRef.current.vx *= friction
+        inertiaRef.current.vy *= friction
+        inertiaRef.current.raf = requestAnimationFrame(step)
+      }
+      if (inertiaRef.current.raf != null) cancelAnimationFrame(inertiaRef.current.raf)
+      inertiaRef.current.raf = requestAnimationFrame(step)
+    }
     lastPosRef.current = null
     pinchRef.current = null
+    touchStartClientRef.current = null
+    touchMovedRef.current = false
   }
 
   return (
@@ -673,8 +749,7 @@ export default function RealMap({
                onMouseUp={() => onTerritoryMouseUp?.(t.id)}
                  onMouseEnter={() => setHover({ id: t.id, x: xy[0], y: xy[1] })}
                  onMouseLeave={() => setHover(null)}
-               onTouchStart={() => onTerritoryMouseDown?.(t.id)}
-               onTouchEnd={() => onTerritoryMouseUp?.(t.id)}
+              onTouchEnd={() => { if (!touchMovedRef.current) { onTerritoryMouseUp?.(t.id) } }}
                  style={{ cursor: clickable ? 'pointer' : 'default', opacity: inactive ? 0.7 : 1 }}>
               {/* invisible larger hit area */}
                 <circle cx={xy[0]} cy={xy[1]} r={isMobile ? 20 : 18} fill="transparent" />
@@ -695,8 +770,14 @@ export default function RealMap({
                 )}
                 {/* Army placement pop animation */}
                 {flashIds[t.id] && flashIds[t.id] > Date.now() && (
-                  <g className="animate-fade-in-scale">
-                    <circle cx={xy[0]} cy={xy[1]} r={radius + 7} fill="none" stroke={(owner?.color || '#fbbf24')} strokeOpacity={0.9} strokeWidth={2} />
+                  <g style={{ pointerEvents: 'none' }}>
+                    <g className="animate-fade-in-scale">
+                      <circle cx={xy[0]} cy={xy[1]} r={radius + 7} fill="none" stroke={(owner?.color || '#fbbf24')} strokeOpacity={0.95} strokeWidth={2} />
+                    </g>
+                    {!lowEffects && (
+                      <circle cx={xy[0]} cy={xy[1]} r={radius + 12} fill="none" stroke={(owner?.color || '#fbbf24')} strokeOpacity={0.35} strokeWidth={2} className="animate-ping" />
+                    )}
+                    <text x={xy[0]} y={xy[1] - (radius + 16)} textAnchor="middle" fontSize={12} fontWeight={700} fill={(owner?.color || '#fbbf24')} className="animate-rise-fade">+1</text>
                   </g>
                 )}
                 <circle cx={xy[0]} cy={xy[1]} r={radius} fill={baseFill} stroke={strokeColor} strokeWidth={strokeWidth} filter={lowEffects ? undefined : "url(#shadow)"} />
@@ -886,8 +967,31 @@ export default function RealMap({
       </g>
 
       {/* Controls (not affected by zoom) */}
-      <g transform={`translate(${canvas.w - 44} 12)`}>
+      <g transform={`translate(${controlsX} ${controlsY})`}>
         <g>
+          {/* hit area */}
+          <rect
+            x={-hitSize}
+            y={-(hitSize-ctrlSize)/2}
+            width={hitSize}
+            height={hitSize}
+            rx={hitSize/2}
+            fill="transparent"
+            onClick={() => {
+              setTransform(t => ({ ...t, scale: clamp(t.scale * 1.15, 0.7, 3.5) }));
+              setMinimapActive(true);
+              if (minimapTimerRef.current) window.clearTimeout(minimapTimerRef.current);
+              minimapTimerRef.current = window.setTimeout(()=> setMinimapActive(false), 2500);
+            }}
+            onTouchStart={(e) => {
+              e.preventDefault();
+              setTransform(t => ({ ...t, scale: clamp(t.scale * 1.15, 0.7, 3.5) }));
+              setMinimapActive(true);
+              if (minimapTimerRef.current) window.clearTimeout(minimapTimerRef.current);
+              minimapTimerRef.current = window.setTimeout(()=> setMinimapActive(false), 2500);
+            }}
+            style={{ cursor: 'pointer' }}
+          />
           <rect
             x={-ctrlSize}
             y={0}
@@ -913,7 +1017,30 @@ export default function RealMap({
           />
           <text x={-ctrlSize/2} y={ctrlSize - 9} textAnchor="middle" fontSize={ctrlText} fill="#e2e8f0">+</text>
         </g>
-        <g transform={`translate(0 ${ctrlSize + 8})`}>
+        <g transform={`translate(0 ${ctrlSize + ctrlSpacing})`}>
+          {/* hit area */}
+          <rect
+            x={-hitSize}
+            y={-(hitSize-ctrlSize)/2}
+            width={hitSize}
+            height={hitSize}
+            rx={hitSize/2}
+            fill="transparent"
+            onClick={() => {
+              setTransform(t => ({ ...t, scale: clamp(t.scale / 1.15, 0.7, 3.5) }));
+              setMinimapActive(true);
+              if (minimapTimerRef.current) window.clearTimeout(minimapTimerRef.current);
+              minimapTimerRef.current = window.setTimeout(()=> setMinimapActive(false), 2500);
+            }}
+            onTouchStart={(e) => {
+              e.preventDefault();
+              setTransform(t => ({ ...t, scale: clamp(t.scale / 1.15, 0.7, 3.5) }));
+              setMinimapActive(true);
+              if (minimapTimerRef.current) window.clearTimeout(minimapTimerRef.current);
+              minimapTimerRef.current = window.setTimeout(()=> setMinimapActive(false), 2500);
+            }}
+            style={{ cursor: 'pointer' }}
+          />
           <rect
             x={-ctrlSize}
             y={0}
@@ -939,7 +1066,30 @@ export default function RealMap({
           />
           <text x={-ctrlSize/2} y={ctrlSize - 9} textAnchor="middle" fontSize={ctrlText} fill="#e2e8f0">−</text>
         </g>
-        <g transform={`translate(0 ${(ctrlSize + 8) * 2})`}>
+        <g transform={`translate(0 ${(ctrlSize + ctrlSpacing) * 2})`}>
+          {/* hit area */}
+          <rect
+            x={-hitSize}
+            y={-(hitSize-ctrlSize)/2}
+            width={hitSize}
+            height={hitSize}
+            rx={hitSize/2}
+            fill="transparent"
+            onClick={() => {
+              setTransform({ scale: 1, tx: 0, ty: 0 });
+              setMinimapActive(true);
+              if (minimapTimerRef.current) window.clearTimeout(minimapTimerRef.current);
+              minimapTimerRef.current = window.setTimeout(()=> setMinimapActive(false), 2500);
+            }}
+            onTouchStart={(e) => {
+              e.preventDefault();
+              setTransform({ scale: 1, tx: 0, ty: 0 });
+              setMinimapActive(true);
+              if (minimapTimerRef.current) window.clearTimeout(minimapTimerRef.current);
+              minimapTimerRef.current = window.setTimeout(()=> setMinimapActive(false), 2500);
+            }}
+            style={{ cursor: 'pointer' }}
+          />
           <rect
             x={-ctrlSize}
             y={0}
@@ -964,6 +1114,41 @@ export default function RealMap({
             style={{ cursor: 'pointer' }}
           />
           <text x={-ctrlSize/2} y={ctrlSize - 11} textAnchor="middle" fontSize={ctrlTextSmall} fill="#e2e8f0">⟲</text>
+        </g>
+        {/* Help button and inline panel */}
+        <g transform={`translate(0 ${(ctrlSize + ctrlSpacing) * 3})`} style={{ cursor: 'pointer' }}>
+          {/* hit area */}
+          <rect
+            x={-hitSize}
+            y={-(hitSize-ctrlSize)/2}
+            width={hitSize}
+            height={hitSize}
+            rx={hitSize/2}
+            fill="transparent"
+            onClick={() => setShowHelp(v => !v)}
+          />
+          <rect
+            x={-ctrlSize}
+            y={0}
+            width={ctrlSize}
+            height={ctrlSize}
+            rx={ctrlSize/2}
+            fill="#0b1220E6"
+            stroke="#475569"
+            onClick={() => setShowHelp(v => !v)}
+          />
+          <text x={-ctrlSize/2} y={ctrlSize - 9} textAnchor="middle" fontSize={13} fill="#e2e8f0">?</text>
+          {showHelp && (
+            <g transform={`translate(-${isMobile ? 200 : 230} 0)`}>
+              <rect x={0} y={0} width={isMobile ? 190 : 220} height={isMobile ? 110 : 120} rx={10} fill="#0b1220E6" stroke="#334155" />
+              <text x={10} y={18} fontSize={12} fill="#93c5fd">{lang==='en' ? 'Shortcuts' : 'Kısayollar'}</text>
+              <text x={10} y={38} fontSize={10} fill="#e2e8f0">A — {lang==='en' ? 'Attack round' : 'Bir tur saldır'}</text>
+              <text x={10} y={54} fontSize={10} fill="#e2e8f0">E — {lang==='en' ? 'End attack' : 'Saldırıyı bitir'}</text>
+              <text x={10} y={70} fontSize={10} fill="#e2e8f0">F — {lang==='en' ? 'Fortify all' : 'Tümünü takviye'}</text>
+              <text x={10} y={86} fontSize={10} fill="#e2e8f0">R — {lang==='en' ? 'Redeem cards' : 'Kart bozdur'}</text>
+              <text x={10} y={102} fontSize={10} fill="#e2e8f0">+/− — {lang==='en' ? 'Zoom' : 'Yakınlaştır'}</text>
+            </g>
+          )}
         </g>
       </g>
 
@@ -1027,24 +1212,7 @@ export default function RealMap({
         )
       })()}
 
-      {/* Help button and panel (top-left) */}
-      <g transform="translate(12 12)" style={{ cursor: 'pointer' }}>
-        <g onClick={() => setShowHelp(v => !v)}>
-          <rect x={0} y={0} width={26} height={26} rx={13} fill="#0b1220E6" stroke="#475569" />
-          <text x={13} y={17} textAnchor="middle" fontSize={13} fill="#e2e8f0">?</text>
-        </g>
-        {showHelp && (
-          <g transform="translate(34 0)">
-            <rect x={0} y={0} width={isMobile ? 190 : 220} height={isMobile ? 110 : 120} rx={10} fill="#0b1220E6" stroke="#334155" />
-            <text x={10} y={18} fontSize={12} fill="#93c5fd">{lang==='en' ? 'Shortcuts' : 'Kısayollar'}</text>
-            <text x={10} y={38} fontSize={10} fill="#e2e8f0">A — {lang==='en' ? 'Attack round' : 'Bir tur saldır'}</text>
-            <text x={10} y={54} fontSize={10} fill="#e2e8f0">E — {lang==='en' ? 'End attack' : 'Saldırıyı bitir'}</text>
-            <text x={10} y={70} fontSize={10} fill="#e2e8f0">F — {lang==='en' ? 'Fortify all' : 'Tümünü takviye'}</text>
-            <text x={10} y={86} fontSize={10} fill="#e2e8f0">R — {lang==='en' ? 'Redeem cards' : 'Kart bozdur'}</text>
-            <text x={10} y={102} fontSize={10} fill="#e2e8f0">+/− — {lang==='en' ? 'Zoom' : 'Yakınlaştır'}</text>
-          </g>
-        )}
-      </g>
+      {/* Help button merged into controls above */}
     </svg>
   )
 }

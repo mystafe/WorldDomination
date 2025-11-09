@@ -23,7 +23,7 @@ function App() {
   const holdFiredRef = useRef<boolean>(false)
   const [isMobile, setIsMobile] = useState(false)
   const audioRef = useRef<HTMLAudioElement | null>(null)
-  const [musicOn, setMusicOn] = useState(true)
+  const [musicOn, setMusicOn] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
   const [focusId, setFocusId] = useState<string | null>(null)
   const [showOnboarding, setShowOnboarding] = useState(false)
@@ -804,9 +804,9 @@ function App() {
         {/* Header */}
         <div className="bg-slate-800/50 backdrop-blur-xl rounded-2xl border border-slate-700/50 p-3 md:p-4 mb-3 md:mb-4 sticky top-0 z-30" style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}>
           <div className="flex justify-between items-center relative">
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 sm:gap-3 min-w-0">
               <h1
-                className="text-2xl font-bold text-white cursor-pointer hover:underline"
+                className="text-2xl font-bold text-white cursor-pointer hover:underline truncate max-w-[38vw] sm:max-w-none"
                 onClick={() => {
                   setSetupComplete(false)
                   try { useGameStore.getState().reset() } catch {}
@@ -815,9 +815,9 @@ function App() {
               >
                 {tr('title')}
               </h1>
-              <div className="flex flex-col gap-1">
-                <div className="flex items-center gap-2">
-              <p className="text-slate-400">
+              <div className="flex flex-col gap-1 min-w-0">
+                <div className="flex items-center gap-2 min-w-0">
+              <p className="text-slate-400 truncate">
                 {getMapById(selectedMap)?.name} • {tr('turn')} {turn}
               </p>
                   {/* Phase chip */}
@@ -830,87 +830,10 @@ function App() {
                     }}
                   >
                     {phase === 'placement' ? '🧭 ' + tr('reinforcementPhase') : phase === 'draft' ? '➕ ' + tr('draftPhase') : phase === 'attack' ? '⚔️ ' + tr('attackPhase') : '🛡️ ' + tr('fortifyPhase')}
-                  </span>
-                  {currentPlayer && (
-                    <span
-                      className="hidden xs:flex text-[9px] px-1 py-0.5 rounded-full border items-center gap-1 max-w-[110px]"
-                      style={{
-                        borderColor: (turnColor) + '66',
-                        background: `linear-gradient(135deg, ${turnColor}22, #0b1220bb)`,
-                        color: '#e2e8f0'
-                      }}
-                      title={`${tr('currentPlayer')}: ${currentPlayer.name}`}
-                    >
-                      <span
-                        className="inline-block w-3 h-3 rounded-full border"
-                        style={{ borderColor: currentPlayer.color, backgroundColor: (currentPlayer.color || '#22c55e') + '33' }}
-                      />
-                      <span className="truncate tracking-tight">{currentPlayer.name}</span>
                     </span>
-                  )}
-                  {/* Mobile compact controls: slot/save/load/mute/lang */}
-                  <div className="sm:hidden flex items-center gap-1 ml-1">
-                    <select
-                      value={saveSlot}
-                      onChange={(e)=> setSaveSlot(parseInt(e.target.value))}
-                      className="px-1 py-0.5 text-[10px] rounded bg-slate-800/70 border border-slate-600 text-slate-200"
-                      aria-label="Slot"
-                      title="Slot"
-                    >
-                      <option value={1}>S1</option>
-                      <option value={2}>S2</option>
-                      <option value={3}>S3</option>
-                      <option value={4}>S4</option>
-                      <option value={5}>S5</option>
-                    </select>
-                    <button
-                      onClick={() => {
-                        const ok = (useGameStore.getState().saveGameToSlot?.(saveSlot) || useGameStore.getState().saveGame?.() || false)
-                        setToast(ok ? (config.language==='tr' ? 'Kaydedildi' : 'Saved') : (config.language==='tr' ? 'Kaydetme başarısız' : 'Save failed'))
-                        setTimeout(()=> setToast(null), 1800)
-                      }}
-                      className="px-2 py-0.5 text-[11px] rounded bg-slate-800/70 border border-slate-600 text-slate-200"
-                      aria-label="Save"
-                      title={config.language==='tr' ? 'Kaydet' : 'Save'}
-                    >
-                      💾
-                    </button>
-                    <button
-                      onClick={() => {
-                        const ok = (useGameStore.getState().loadGameFromSlot?.(saveSlot) || useGameStore.getState().loadGame?.() || false)
-                        setToast(ok ? (config.language==='tr' ? 'Yüklendi' : 'Loaded') : (config.language==='tr' ? 'Kayıt yok' : 'No save'))
-                        setTimeout(()=> setToast(null), 1800)
-                      }}
-                      className="px-2 py-0.5 text-[11px] rounded bg-slate-800/70 border border-slate-600 text-slate-200"
-                      aria-label="Load"
-                      title={config.language==='tr' ? 'Yükle' : 'Load'}
-                    >
-                      📂
-                    </button>
-                    <button
-                      onClick={() => setMusicOn(v => !v)}
-                      className="px-2 py-0.5 text-[11px] rounded bg-slate-800/70 border border-slate-600 text-slate-200"
-                      aria-label={musicOn ? (config.language==='tr' ? 'Müziği kapat' : 'Mute') : (config.language==='tr' ? 'Müziği aç' : 'Unmute')}
-                      title={musicOn ? (config.language==='tr' ? 'Müziği kapat' : 'Mute') : (config.language==='tr' ? 'Müziği aç' : 'Unmute')}
-                    >
-                      {musicOn ? '🔊' : '🔈'}
-                    </button>
-                    <select
-                      value={config.language}
-                      onChange={(e) => {
-                        const next = { ...config, language: e.target.value as 'tr'|'en' }
-                        setConfig(next); saveConfig(next)
-                        try { document.documentElement.lang = next.language } catch {}
-                      }}
-                      className="px-1 py-0.5 text-[10px] rounded bg-slate-800/70 border border-slate-600 text-slate-200"
-                      aria-label="Lang"
-                      title={config.language==='tr' ? 'Dil' : 'Language'}
-                    >
-                      <option value="tr">TR</option>
-                      <option value="en">EN</option>
-                    </select>
-                  </div>
-                </div>
+                  
+                  {/* Mobile compact controls moved into settings popover to avoid duplication */}
+              </div>
                 {/* Phase progress bar */}
                 {(() => {
                   const order: Array<'placement'|'draft'|'attack'|'fortify'> = ['placement','draft','attack','fortify']
@@ -925,152 +848,69 @@ function App() {
                         className="h-full rounded-full"
                         style={{ background: `linear-gradient(90deg, ${(currentPlayer?.color || '#22c55e')} 0%, #3B82F6 100%)` }}
                       />
-                    </div>
+              </div>
                   )
                 })()}
               </div>
             </div>
-
-            {currentPlayer && (
-              <div className="flex items-center gap-4">
-                {/* Mobile compact player card */}
-                <div className="sm:hidden">
-                  <div className="relative bg-slate-900/60 border border-slate-700/70 rounded-xl px-2 py-2 flex items-center gap-2 max-w-[72vw]">
-                    <div className="w-7 h-7 rounded-full border grid place-items-center shadow"
-                      style={{ borderColor: currentPlayer.color, backgroundColor: (currentPlayer.color || '#22c55e') + '26' }}>
-                      <span className="text-white font-bold text-[11px] leading-none">
-                        {(currentPlayer.name || 'P').slice(0,1).toUpperCase()}
-                      </span>
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="text-[10px] uppercase tracking-wide text-slate-400">{tr('currentPlayer')}</div>
-                      <div className="text-white font-bold leading-tight text-[13px] truncate">
-                    {currentPlayer.name}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                {/* Desktop/tablet deluxe card */}
-                <div className="relative hidden sm:block">
-                  <div
-                    className="absolute -inset-1 rounded-2xl blur-lg opacity-70"
-                    style={{ background: `linear-gradient(135deg, ${turnColor}44, #0ea5e944)` }}
-                    aria-hidden
-                  />
-                  <div className="relative bg-slate-900/60 border border-slate-700/70 rounded-2xl px-3 py-3 sm:px-4 sm:py-4 flex items-center gap-3 sm:gap-4">
-                    {/* Avatar with animated ring */}
-                    <div className="relative w-12 h-12 sm:w-14 sm:h-14">
-                      {/* subtle animated ring (smaller halo) */}
-                      <div
-                        className="absolute inset-1 rounded-full animate-ping opacity-60"
-                        style={{ backgroundColor: (currentPlayer.color || '#22c55e') + '14' }}
-                        aria-hidden
-                      />
-                      {/* avatar */}
-                      <div
-                        className="relative w-full h-full rounded-full border-2 grid place-items-center shadow-md"
-                        style={{
-                          borderColor: currentPlayer.color,
-                          background: `radial-gradient(circle at 35% 30%, ${(currentPlayer.color || '#22c55e')}33 0%, transparent 60%), ${(currentPlayer.color || '#22c55e')}26`
-                        }}
-                      >
-                        <span className="text-white font-extrabold text-base sm:text-lg">
-                          {(currentPlayer.name || 'P').slice(0,1).toUpperCase()}
-                        </span>
-                      </div>
-                    </div>
-                    {/* Info */}
-                    <div className="min-w-[160px]">
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="text-[10px] uppercase tracking-wide text-slate-400">{tr('currentPlayer')}</span>
-                      </div>
-                      <div className="text-white font-extrabold leading-tight text-lg sm:text-xl">
-                        {currentPlayer.name}
-                      </div>
-                      <div className="mt-1 flex flex-wrap items-center gap-1.5">
-                        <span className="text-[10px] px-2 py-0.5 rounded-full" style={{ backgroundColor: (currentPlayer.color || '#64748b') + '26', color: currentPlayer.color }}>
-                          {(currentPlayer.cards?.length || 0)} {tr('cards')}
-                    </span>
-                    {!currentPlayer.isHuman && (
-                          <span className="text-[10px] px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300">
-                        🤖 AI
-                      </span>
-                    )}
-                        {(() => {
-                          const tc = territories.filter(t => t.ownerId === currentPlayer.id).length
-                          const ac = territories.filter(t => t.ownerId === currentPlayer.id).reduce((s, t) => s + t.armies, 0)
-                          return (
-                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-700/60 text-slate-200">
-                              {tc} {config.language==='tr' ? 'bölge' : 'terr.'} • {ac} {config.language==='tr' ? 'asker' : 'armies'}
-                            </span>
-                          )
-                        })()}
-              </div>
-              </div>
-                  </div>
-                </div>
-                {/* Quick actions */}
-                <div className="hidden sm:flex flex-col gap-2">
-                  <div className="flex gap-2">
-                    <select
-                      value={saveSlot}
-                      onChange={(e)=> setSaveSlot(parseInt(e.target.value))}
-                      className="px-2 py-2 text-xs rounded bg-slate-700 text-white hover:bg-slate-600"
-                      aria-label="Save slot"
-                      title="Save Slot"
-                    >
-                      <option value={1}>Slot 1</option>
-                      <option value={2}>Slot 2</option>
-                      <option value={3}>Slot 3</option>
-                      <option value={4}>Slot 4</option>
-                      <option value={5}>Slot 5</option>
-                    </select>
-                    <button
-                      onClick={() => {
-                        const ok = (useGameStore.getState().saveGameToSlot?.(saveSlot) || useGameStore.getState().saveGame?.() || false)
-                        setToast(ok ? (config.language==='tr' ? 'Oyun kaydedildi' : 'Game saved') : (config.language==='tr' ? 'Kaydetme başarısız' : 'Save failed'))
-                        setTimeout(()=> setToast(null), 2000)
-                      }}
-                      className="px-3 py-2 text-xs rounded bg-slate-700 text-white hover:bg-slate-600"
-                    >
-                      💾 {config.language==='tr' ? 'Kaydet' : 'Save'}
-                    </button>
-                    <button
-                      onClick={() => {
-                        const ok = (useGameStore.getState().loadGameFromSlot?.(saveSlot) || useGameStore.getState().loadGame?.() || false)
-                        setToast(ok ? (config.language==='tr' ? 'Oyun yüklendi' : 'Game loaded') : (config.language==='tr' ? 'Kayıt bulunamadı' : 'No save found'))
-                        setTimeout(()=> setToast(null), 2000)
-                      }}
-                      className="px-3 py-2 text-xs rounded bg-slate-700 text-white hover:bg-slate-600"
-                    >
-                      📂 {config.language==='tr' ? 'Yükle' : 'Load'}
-                    </button>
-                    <button
-                      onClick={() => setMusicOn(v => !v)}
-                      className="px-3 py-2 text-xs rounded bg-slate-700 text-white hover:bg-slate-600"
-                      aria-label="Toggle music"
-                      title={musicOn ? (config.language==='tr' ? 'Müziği kapat' : 'Turn off music') : (config.language==='tr' ? 'Müziği aç' : 'Turn on music')}
-                    >
-                      {musicOn ? '🔊' : '🔈'}
-                    </button>
-                    <select
-                      value={config.language}
-                      onChange={(e) => {
-                        const next = { ...config, language: e.target.value as 'tr'|'en' }
-                        setConfig(next); saveConfig(next)
-                        try { document.documentElement.lang = next.language } catch {}
-                      }}
-                      className="px-2 py-2 text-xs rounded bg-slate-700 text-white hover:bg-slate-600"
-                      aria-label="Language"
-                      title={config.language==='tr' ? 'Dil' : 'Language'}
-                    >
-                      <option value="tr">TR</option>
-                      <option value="en">EN</option>
-                    </select>
-                  </div>
-                </div>
-              </div>
-            )}
+            {/* Desktop quick actions (no current player card on header) */}
+            <div className="hidden sm:flex items-center gap-2">
+              <select
+                value={saveSlot}
+                onChange={(e)=> setSaveSlot(parseInt(e.target.value))}
+                className="px-2 py-2 text-xs rounded bg-slate-700 text-white hover:bg-slate-600"
+                aria-label="Save slot"
+                title="Save Slot"
+              >
+                <option value={1}>Slot 1</option>
+                <option value={2}>Slot 2</option>
+                <option value={3}>Slot 3</option>
+                <option value={4}>Slot 4</option>
+                <option value={5}>Slot 5</option>
+              </select>
+              <button
+                onClick={() => {
+                  const ok = (useGameStore.getState().saveGameToSlot?.(saveSlot) || useGameStore.getState().saveGame?.() || false)
+                  setToast(ok ? (config.language==='tr' ? 'Oyun kaydedildi' : 'Game saved') : (config.language==='tr' ? 'Kaydetme başarısız' : 'Save failed'))
+                  setTimeout(()=> setToast(null), 2000)
+                }}
+                className="px-3 py-2 text-xs rounded bg-slate-700 text-white hover:bg-slate-600"
+              >
+                💾 {config.language==='tr' ? 'Kaydet' : 'Save'}
+              </button>
+              <button
+                onClick={() => {
+                  const ok = (useGameStore.getState().loadGameFromSlot?.(saveSlot) || useGameStore.getState().loadGame?.() || false)
+                  setToast(ok ? (config.language==='tr' ? 'Oyun yüklendi' : 'Game loaded') : (config.language==='tr' ? 'Kayıt bulunamadı' : 'No save found'))
+                  setTimeout(()=> setToast(null), 2000)
+                }}
+                className="px-3 py-2 text-xs rounded bg-slate-700 text-white hover:bg-slate-600"
+              >
+                📂 {config.language==='tr' ? 'Yükle' : 'Load'}
+              </button>
+              <button
+                onClick={() => setMusicOn(v => !v)}
+                className="px-2.5 py-2 text-[13px] rounded bg-slate-800/70 border border-slate-600 text-slate-200"
+                aria-label={musicOn ? (config.language==='tr' ? 'Müziği kapat' : 'Mute') : (config.language==='tr' ? 'Müziği aç' : 'Unmute')}
+                title={musicOn ? (config.language==='tr' ? 'Müziği kapat' : 'Mute') : (config.language==='tr' ? 'Müziği aç' : 'Unmute')}
+              >
+                {musicOn ? '🔊' : '🔈'}
+              </button>
+              <select
+                value={config.language}
+                onChange={(e) => {
+                  const next = { ...config, language: e.target.value as 'tr'|'en' }
+                  setConfig(next); saveConfig(next)
+                  try { document.documentElement.lang = next.language } catch {}
+                }}
+                className="px-2 py-2 text-xs rounded bg-slate-700 text-white hover:bg-slate-600"
+                aria-label="Language"
+                title={config.language==='tr' ? 'Dil' : 'Language'}
+              >
+                <option value="tr">TR</option>
+                <option value="en">EN</option>
+              </select>
+            </div>
             {/* Mobile settings trigger */}
             <div className="sm:hidden absolute right-3 top-3">
               <button
@@ -1084,7 +924,7 @@ function App() {
             </div>
             {/* Mobile settings popover */}
             {showMobileSettings && (
-              <div className="sm:hidden absolute right-2 top-12 z-20 bg-slate-900/95 border border-slate-700/70 rounded-xl p-3 w-56 shadow-xl">
+              <div className="sm:hidden absolute right-2 top-12 z-40 bg-slate-900/95 border border-slate-700/70 rounded-xl p-3 w-[min(92vw,320px)] max-h-[min(70vh,420px)] overflow-y-auto shadow-2xl" style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
                 <div className="space-y-3">
                   <div>
                     <div className="text-xs text-slate-400 mb-1">{config.language==='tr' ? 'Kayıt Slotu' : 'Save Slot'}</div>
@@ -1099,14 +939,14 @@ function App() {
                       <option value={4}>Slot 4</option>
                       <option value={5}>Slot 5</option>
                     </select>
-                    <div className="mt-2 flex gap-2">
+                    <div className="mt-2 grid grid-cols-2 gap-2">
                       <button
                         onClick={() => {
                           const ok = (useGameStore.getState().saveGameToSlot?.(saveSlot) || useGameStore.getState().saveGame?.() || false)
                           setToast(ok ? (config.language==='tr' ? 'Oyun kaydedildi' : 'Game saved') : (config.language==='tr' ? 'Kaydetme başarısız' : 'Save failed'))
                           setTimeout(()=> setToast(null), 2000)
                         }}
-                        className="px-3 py-2 text-xs rounded bg-slate-700 text-white hover:bg-slate-600 flex-1"
+                        className="px-3 py-2 text-xs rounded bg-slate-700 text-white hover:bg-slate-600"
                       >
                         💾 {config.language==='tr' ? 'Kaydet' : 'Save'}
                       </button>
@@ -1116,7 +956,7 @@ function App() {
                           setToast(ok ? (config.language==='tr' ? 'Oyun yüklendi' : 'Game loaded') : (config.language==='tr' ? 'Kayıt bulunamadı' : 'No save found'))
                           setTimeout(()=> setToast(null), 2000)
                         }}
-                        className="px-3 py-2 text-xs rounded bg-slate-700 text-white hover:bg-slate-600 flex-1"
+                        className="px-3 py-2 text-xs rounded bg-slate-700 text-white hover:bg-slate-600"
                       >
                         📂 {config.language==='tr' ? 'Yükle' : 'Load'}
                       </button>
@@ -1616,7 +1456,10 @@ function App() {
                 )}
             {/* Phase Info */}
             <div className="bg-slate-800/50 backdrop-blur-xl rounded-2xl border border-slate-700/50 p-3 md:p-4">
-              <h3 className="text-lg font-bold text-white mb-3">{tr('phase')}</h3>
+              <h3 className="text-lg font-bold text-white mb-1">{tr('phase')}</h3>
+              <div className="text-[11px] text-slate-400 mb-2">
+                {tr('currentPlayer')}: <span style={{ color: turnColor }}>{currentPlayer?.name || '-'}</span>
+              </div>
 
               {phase === 'placement' && (
                 <div className="space-y-3">

@@ -25,7 +25,7 @@ export const defaultConfig: GameConfig = {
   instantMode: false,
   lowEffects: false,
   colorblindMode: false,
-  sfx: true
+  sfx: false
 }
 
 const CONFIG_KEY = "risk-game-config"

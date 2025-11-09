@@ -284,6 +284,24 @@
     animation: fadeInScale 0.4s ease-out;
   }
 
+  @keyframes riseFade {
+    0% {
+      opacity: 0;
+      transform: translateY(6px) scale(0.95);
+    }
+    15% {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+    100% {
+      opacity: 0;
+      transform: translateY(-10px) scale(0.98);
+    }
+  }
+  .animate-rise-fade {
+    animation: riseFade 0.8s ease-out forwards;
+  }
+
   .animate-fade-in-left {
     animation: fadeInLeft 0.6s ease-out;
   }
