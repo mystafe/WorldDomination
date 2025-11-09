@@ -122,6 +122,8 @@ export interface GameState {
   // Persistence
   saveGame?: () => boolean
   loadGame?: () => boolean
+  saveGameToSlot?: (slot: number) => boolean
+  loadGameFromSlot?: (slot: number) => boolean
 }
 
 export interface HistoryEntry {
@@ -227,9 +229,74 @@ export const useGameStore = create<GameState>((set, get) => ({
       return false
     }
   },
+  saveGameToSlot: (slot: number) => {
+    try {
+      const s = get()
+      const snapshot = {
+        selectedMap: s.selectedMap,
+        players: s.players,
+        territories: s.territories,
+        phase: s.phase,
+        currentPlayerIndex: s.currentPlayerIndex,
+        turn: s.turn,
+        draftArmies: s.draftArmies,
+        attackFrom: s.attackFrom,
+        attackTo: s.attackTo,
+        lastBattleResult: s.lastBattleResult,
+        fortifyFrom: s.fortifyFrom,
+        fortifyTo: s.fortifyTo,
+        cardsDeck: s.cardsDeck,
+        conquestMadeThisTurn: s.conquestMadeThisTurn,
+        draftHasPlaced: s.draftHasPlaced,
+        settings: s.settings,
+        history: s.history,
+        placementReserves: s.placementReserves,
+        placementStage: s.placementStage,
+        savedAt: Date.now()
+      }
+      localStorage.setItem(`risk-save-${Math.max(1, Math.min(5, slot))}`, JSON.stringify(snapshot))
+      return true
+    } catch {
+      return false
+    }
+  },
   loadGame: () => {
     try {
       const raw = localStorage.getItem('risk-save')
+      if (!raw) return false
+      const snap = JSON.parse(raw)
+      const mapDef = getMapById(snap.selectedMap)
+      if (!mapDef) return false
+      set({
+        selectedMap: snap.selectedMap,
+        mapDefinition: mapDef,
+        players: snap.players || [],
+        territories: snap.territories || [],
+        phase: snap.phase || 'draft',
+        currentPlayerIndex: snap.currentPlayerIndex || 0,
+        turn: snap.turn || 1,
+        draftArmies: snap.draftArmies || 0,
+        attackFrom: snap.attackFrom || null,
+        attackTo: snap.attackTo || null,
+        lastBattleResult: snap.lastBattleResult || null,
+        fortifyFrom: snap.fortifyFrom || null,
+        fortifyTo: snap.fortifyTo || null,
+        cardsDeck: snap.cardsDeck || [],
+        conquestMadeThisTurn: !!snap.conquestMadeThisTurn,
+        draftHasPlaced: !!snap.draftHasPlaced,
+        settings: { ...initialState.settings, ...(snap.settings || {}) },
+        history: snap.history || [],
+        placementReserves: snap.placementReserves,
+        placementStage: snap.placementStage
+      })
+      return true
+    } catch {
+      return false
+    }
+  },
+  loadGameFromSlot: (slot: number) => {
+    try {
+      const raw = localStorage.getItem(`risk-save-${Math.max(1, Math.min(5, slot))}`)
       if (!raw) return false
       const snap = JSON.parse(raw)
       const mapDef = getMapById(snap.selectedMap)
