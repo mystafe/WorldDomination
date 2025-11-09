@@ -733,7 +733,7 @@ function App() {
                     </div>
           {/* Subtle footer credit */}
           <div className="text-center text-[10px] text-slate-400/40 mt-4 select-none">
-            {tr('credit')} • {(config.language==='tr' ? 'Sürüm' : 'Version')} 1.1.17
+            {tr('credit')} • {(config.language==='tr' ? 'Sürüm' : 'Version')} 1.1.18
                     </div>
         </motion.div>
                   </div>

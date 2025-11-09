@@ -753,7 +753,15 @@ export default function RealMap({
                onMouseUp={() => { if (Date.now() < touchClickBlockUntilRef.current) return; onTerritoryMouseUp?.(t.id) }}
                  onMouseEnter={() => setHover({ id: t.id, x: xy[0], y: xy[1] })}
                  onMouseLeave={() => setHover(null)}
-              onTouchEnd={() => { if (!touchMovedRef.current) { onTerritoryMouseUp?.(t.id) } }}
+              onTouchEnd={() => {
+                if (!touchMovedRef.current) {
+                  if (phase === 'attack' || phase === 'fortify') {
+                    onTerritoryClick?.(t.id)
+                  } else {
+                    onTerritoryMouseUp?.(t.id)
+                  }
+                }
+              }}
                  style={{ cursor: clickable ? 'pointer' : 'default', opacity: inactive ? 0.7 : 1 }}>
               {/* invisible larger hit area */}
                 <circle cx={xy[0]} cy={xy[1]} r={isMobile ? 20 : 18} fill="transparent" />
