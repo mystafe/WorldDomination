@@ -313,8 +313,6 @@ export default function RealMap({
   const lang = (typeof document !== 'undefined' && document.documentElement.lang?.toLowerCase().startsWith('en')) ? 'en' : 'tr'
   const ctrlSize = isMobile ? 28 : 28
   const hitSize = isMobile ? 40 : 34
-  const ctrlText = isMobile ? 16 : 14
-  const ctrlTextSmall = isMobile ? 11 : 10
   const ctrlSpacing = 8
   const ctrlMargin = 12
   const ctrlStackH = ctrlSize * 4 + ctrlSpacing * 3
